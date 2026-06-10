@@ -29,4 +29,4 @@ class FeatureInspector:
             print(f" Max  : {features[f'{name}_max']:.4f}")
             print()
 
-        return features
+        return features   #should hopefully print out the values for ndvi and ndre that you have set up currently

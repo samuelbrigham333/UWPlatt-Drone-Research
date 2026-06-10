@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 
@@ -79,3 +80,36 @@ class UserInterface:
             "split_overlap": overlap,
             "pc_quality": pc_quality
         }
+
+    @staticmethod
+    def get_ortho_options():
+
+        print("\n=== Next Steps ===")
+
+        close = input(
+            "Would you like to continue to feature extraction? (yes/no) "
+        ).strip().lower()
+
+        if close == "no":
+            print("Ending session")
+            sys.exit()
+
+        print("Moving on...")
+
+        while True:
+
+            ortho = input(
+                "\nPlease enter orthomosaic file path --> "
+            ).strip()
+
+            ortho_path = Path(ortho).expanduser().resolve()
+
+            if not ortho_path.exists():
+                print("File does not exist.\n")
+                continue
+
+            if ortho_path.suffix.lower() not in [".tif", ".tiff"]:
+                print("Must be a TIFF file.\n")
+                continue
+
+            return ortho_path
