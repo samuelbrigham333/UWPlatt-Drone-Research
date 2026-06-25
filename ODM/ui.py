@@ -4,6 +4,23 @@ from pathlib import Path
 
 class UserInterface:
 
+
+    @staticmethod
+    def get_start_option():
+        print("\n=== Drone Processing ===")
+        print("1. ODM Processing")
+        print("2. Analyze Existing Orthophoto")
+        print("3. Exit Program")
+
+        while True:
+
+            choice = input("\nSelection --> ").strip()
+
+            if choice in ["1", "2", "3"]:
+                return choice
+
+            print("Please enter valid option")
+
     @staticmethod
     def get_project_path():
 
@@ -25,6 +42,10 @@ class UserInterface:
         output_path = Path(path).expanduser().resolve()
 
         output_path.mkdir(parents=True, exist_ok=True)
+
+        if not output_path.exists():
+            raise ValueError("Output path does not exist")
+
 
         return output_path
 

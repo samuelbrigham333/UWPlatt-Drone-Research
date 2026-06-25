@@ -1,35 +1,42 @@
 import time
 
-
+from ODM.command_builder import ODMCommandBuilder
 from ODM.docker_manager import DockerManager
-from ODM.feature_inspector import FeatureInspector
+from ODM.runner import ODMRunner
+from ODM.ui import UserInterface
+
 from ODM.raster.raster_loader import RasterLoader
 from ODM.raster.vegetation_indices import VegetationIndices
-from ODM.ui import UserInterface
-from ODM.command_builder import ODMCommandBuilder
-from ODM.runner import ODMRunner
+from ODM.feature_inspector import FeatureInspector
 
-from ODM.exif_validator import validate_images
-
+from ODM.validate_images import validate_images
 
 class ODMApplication:
 
     def __init__(self):
-
         self.docker = DockerManager()
 
     def execute(self):
+        choice = UserInterface.get_start_option()
 
-        if not self.docker.docker_running():
-            self.docker.start_docker()
+        if choice == "1":
+            ortho_path = self.run_odm_pipeline()
 
-            print("Waiting for Docker to initialize...")
+        elif choice == "2":
 
-            while not self.docker.docker_running():
-                time.sleep(10)      #10 seconds; verify
+            ortho_path = UserInterface.get_ortho_options()
+
+        else:
+            print("Goodbye")
+            return
+
+        self.run_feature_extraction(ortho_path)
 
 
-        #COLLECTS USER INPUTS
+    def run_odm_pipeline(self):
+
+        self.ensure_docker_running()
+
         image_path = UserInterface.get_project_path()
 
         validate_images(image_path)
@@ -40,49 +47,66 @@ class ODMApplication:
 
         options = UserInterface.get_pipeline_options()
 
-
-
-        #CREATE ODM PROJECT FOLDER
-        #IMAGES ARE MOUNTED DIRECTLY FOR OPTIMIZATION
-
         project_folder = output_path / project_name
 
         project_folder.mkdir(
-            parents=True,
+            parents = True,
             exist_ok=True
         )
 
-        print("\nODM Project Created")
+        print ("\nODM Project Created")
         print(project_folder)
 
-        #BUILD DOCKER COMMAND
-
         builder = ODMCommandBuilder(
-            image_path = image_path,
-            output_path = output_path,
-            project_name = project_name,
-            options = options
+            image_path=image_path,
+            output_path=output_path,
+            project_name=project_name,
+            options=options
         )
 
         command = builder.build_command()
 
-        #EXECUTION
         runner = ODMRunner(command)
-
-        print ("Preparing to run ODM")      #debugging point
 
         runner.run()
 
-        print ("ODM finished")      #debugging point
+        print("\nODM Processing Complete.")
 
-        ortho_path = UserInterface.get_ortho_options()
+        return UserInterface.get_ortho_options()
 
-        print(f"Orthophoto selected: {ortho_path}")
+    def ensure_docker_running(self):       #currrently code kinda freaks out if docker is already running try to fix
 
+        if self.docker.docker_running():
 
+            return
 
+        self.docker.start_docker()
 
+        print("Waiting for Docker...")
 
+        while not self.docker.docker_running():
+
+            time.sleep(10)
+
+    def run_feature_extraction(self, ortho_path):
+
+        loader = RasterLoader(ortho_path)
+
+        bands = loader.load()
+
+        vegetation = VegetationIndices(bands)
+
+        indices = vegetation.calculate_all()
+
+        inspector = FeatureInspector(indices)
+
+        results = inspector.summarize()
+
+        print()
+
+        print(results)
+
+        #anything else can just be added on down here
 
 
 
