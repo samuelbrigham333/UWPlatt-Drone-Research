@@ -1,3 +1,11 @@
+"""
+Raster loading module
+
+Provides functionality for loading multispectral orthomosaic
+TIFF images using rasterio, the loaded raster bands
+are converted to NumPy arrays for use in feature extraction and analysis
+"""
+
 import rasterio
 import numpy as np
 

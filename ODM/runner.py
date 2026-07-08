@@ -1,3 +1,8 @@
+"""
+ODM execution module
+
+Execute the ODM Docker command and reports whether processing completed successfully
+"""
 import subprocess
 
 

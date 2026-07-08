@@ -1,4 +1,15 @@
+"""
+Vegetation index calculation module
+
+Implements common multipspectral vegetation indices used to assess
+vegetation vigor, chlorophyll concentration, and plant health
+Each index is computed from the raster bands loaded from
+the orthomosaic and returned as a NumPy array for further analysis
+"""
+
 import numpy as np
+from numpy._core._rational_tests import denominator
+
 
 class VegetationIndices:
     def __init__(self, bands):
@@ -28,18 +39,41 @@ class VegetationIndices:
 
         return (nir - red_edge) / (nir + red_edge + 1e-10)
 
-    def evenson(self):
-        nir = self.bands[4]
-        red_edge = self.bands[3]
-        red = self.bands[2]
 
-        return (nir - red_edge) / (nir - red +1e-10)
+    def evenson(self):
+        nir = self.bands[4].astype(float)
+        red_edge = self.bands[3].astype(float)
+        red = self.bands[2].astype(float)
+
+        denominator = nir - red
+        result = np.full(nir.shape, np.nan)
+
+        mask = np.abs(denominator) > 0.2
+
+        result[mask] = (
+            (nir[mask] - red_edge[mask]) /
+            denominator[mask]
+        )
+
+        return result
+
+
+        #return (nir - red_edge) / (nir - red +1e-10) OG EVENSON EQUATION UNMASKED
 
     def ci_rededge(self):
-        nir = self.bands[4]
-        red_edge = self.bands [3]
+        nir = self.bands[4].astype(float)
+        red_edge = self.bands[3].astype(float)
 
-        return (nir / (red_edge + 1e-10)) -1
+        result = np.full(red_edge.shape, np.nan)
+
+        mask = red_edge > 0.2
+
+        result[mask] = (nir[mask] - red_edge[mask]) / red_edge[mask]
+
+        return result
+
+    #filter out anything that is 0 set the min to 0 ndvi > .2
+    #greater than 0.2 run it
 
 
     def calculate_all(self):
@@ -49,7 +83,7 @@ class VegetationIndices:
             "GNDVI": self.gndvi(),
             "NDRE": self.ndre(),
             "CI_RedEdge": self.ci_rededge(),
-            "EvensonIndices": self.evenson()        #name subject to change
+            "EvensonIndices": self.evenson()  #name subject to change
 
 
         }
@@ -61,3 +95,6 @@ class VegetationIndices:
     #Red: 2
     #Red Edge: 3
     #NIR: 4
+
+    #past some threshold call the values 0?
+    #suggestion from evenson^

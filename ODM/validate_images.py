@@ -1,4 +1,12 @@
-#not currently being used in the pipeline wait for removal
+"""
+Image validation module
+
+Provides functionality for validating image metadata
+Occurs BEFORE processing with ODM.
+Each image is inspected to verify that EXIF metadata can be successfully read
+
+This was implemented as a way to deal with corrupted drone images that were breaking the pipeline
+"""
 
 import exifread
 

@@ -1,3 +1,10 @@
+"""
+Docker management module
+
+Provides functionality for verifying that Docker Desktop is running
+and available before executing the ODM pipeline
+"""
+
 import subprocess
 
 

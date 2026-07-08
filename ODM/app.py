@@ -1,7 +1,22 @@
+"""
+Application controller for the drone processing pipeline
+Coordinates the complete workflow of the application
+including
+1. Collecting user input
+2. Validating image metadate
+3. Running the OpenDroneMap processing pipeline
+4. Performing feature extraction on the resulting orthomosaic
+5. Summarizing extracted features for future analysis
+
+Class serves as the central coordinator between the user interface,
+ODM processing, raster loading, adn feature extraction modules
+"""
+
 import time
 
 from ODM.command_builder import ODMCommandBuilder
 from ODM.docker_manager import DockerManager
+from ODM.hsv_features import HSVFeatures
 from ODM.runner import ODMRunner
 from ODM.ui import UserInterface
 
@@ -74,7 +89,7 @@ class ODMApplication:
 
         return UserInterface.get_ortho_options()
 
-    def ensure_docker_running(self):       #currrently code kinda freaks out if docker is already running try to fix
+    def ensure_docker_running(self):
 
         if self.docker.docker_running():
 
@@ -91,22 +106,24 @@ class ODMApplication:
     def run_feature_extraction(self, ortho_path):
 
         loader = RasterLoader(ortho_path)
-
         bands = loader.load()
 
         vegetation = VegetationIndices(bands)
+        vegetation_features = vegetation.calculate_all()
 
-        indices = vegetation.calculate_all()
+        hsv = HSVFeatures(bands)
+        hsv_features = hsv.calculate()
 
-        inspector = FeatureInspector(indices)
+        all_features = {
+            **vegetation_features,
+            **hsv_features
+        }
 
+        inspector = FeatureInspector(all_features)
         results = inspector.summarize()
 
-        print()
-
+        print("\n === Feature Extraction Results ===")
         print(results)
-
-        #anything else can just be added on down here
 
 
 

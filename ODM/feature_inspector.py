@@ -1,3 +1,12 @@
+"""
+Feature summarization module
+
+Computes descriptive stats for each extracted feature raster
+The generated stats provide a concise numerical summary of
+vegetation indicies and color features
+These will be used for analysis
+"""
+
 import numpy as np
 
 class FeatureInspector:
@@ -29,4 +38,4 @@ class FeatureInspector:
             print(f" Max  : {features[f'{name}_max']:.4f}")
             print()
 
-        return features   #should hopefully print out the values for ndvi and ndre that you have set up currently
+        return features

@@ -1,9 +1,21 @@
+"""
+UI covers all user interface features
+includes basic start menu and all other aspects a user will interact with
+can be expanded upon later to create a real front end
+"""
+
 import sys
 from pathlib import Path
 
 
 class UserInterface:
+"""
+Provides all command-line user interface functions
 
+This class collects and handles user input for
+the ODM processing pipeline as well as feature extraction workflow
+All methods should be static there is no interface state needs to be stored between prompts
+"""
 
     @staticmethod
     def get_start_option():

@@ -1,3 +1,10 @@
+"""
+ODM command construction module.
+
+Builds the Docker command used to execute the ODM
+processing pipeline all based on user-provided input and processing options
+"""
+
 class ODMCommandBuilder:
 
     def __init__(self,
