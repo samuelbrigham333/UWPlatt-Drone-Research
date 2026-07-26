@@ -1,148 +1,182 @@
 """
-UI covers all user interface features
-includes basic start menu and all other aspects a user will interact with
-can be expanded upon later to create a real front end
-"""
+Command-Line user interface
 
+Responsible only for collecting user input and displaying different menus
+"""
+import statistics
 import sys
+from os.path import expanduser
 from pathlib import Path
 
-
 class UserInterface:
-"""
-Provides all command-line user interface functions
+    #MAIN MENU
 
-This class collects and handles user input for
-the ODM processing pipeline as well as feature extraction workflow
-All methods should be static there is no interface state needs to be stored between prompts
-"""
+@staticmethod
+def get_start_option():
 
-    @staticmethod
-    def get_start_option():
-        print("\n=== Drone Processing ===")
-        print("1. ODM Processing")
-        print("2. Analyze Existing Orthophoto")
-        print("3. Exit Program")
+    print("\n=== DRONE PROCESSING ===")
+    print("1. Run ODM Processing")
+    print("2. Analyze Existing Ortho")
+    print("3. Exit")
 
-        while True:
+    while True:
+        choice = input ("\nSelection --> ").strip()
 
-            choice = input("\nSelection --> ").strip()
+        if choice ("1", "2", "3"):
+            return choice
 
-            if choice in ["1", "2", "3"]:
-                return choice
-
-            print("Please enter valid option")
-
-    @staticmethod
-    def get_project_path():
-
-        print("\n=== Input/Output Options ===")
-
-        path = input("Enter image/project path --> ").strip()
-        project_path = Path(path).expanduser().resolve()
-
-        if not project_path.exists():
-            raise ValueError("Input path does not exist.")
-
-        return project_path
+        print("Invalid Selection")
 
 
-    @staticmethod
-    def get_output_path():
+#ODM WORKFLOW
 
-        path = input("Enter output folder path --> ").strip()
-        output_path = Path(path).expanduser().resolve()
+@staticmethod
+def get_odm_configuration():
 
-        output_path.mkdir(parents=True, exist_ok=True)
+    print("\n=== ODM Configuration ===")
 
-        if not output_path.exists():
-            raise ValueError("Output path does not exist")
+    image_path = UserInterface._get_existing_directory(
+        "Image folder"
+    )
+
+    output_path = UserInterface._get_output_directory(
+        "Output folder"
+    )
+
+    project_name = UserInterface._get_project_name(
+        output_path
+    )
+
+    pipeline_option = UserInterface.get_pipeline_options()
+
+    return{
+        "image_path": image_path,
+        "output_path": output_path,
+        "project_name": project_name,
+        "pipeline_option": pipeline_option,
+    }
+
+# FEATURE EXTRACTION
+
+@staticmethod
+def get_orthomosaic_path():
+    print("\n=== Feature Extraction ===")
+
+    while True:
+        path = Path(
+            input("Orthomosaic (.tif) --> ").strip()
+        ).expanduser().resolve()
+
+        if not path.exists():
+            print("File does not exist.\n")
+            continue
+
+        if path.suffix.lower() not in (".tif", ".tiff"):
+            print("Must be a TIFF file.\n")
+            continue
+
+#SUPERPIXEL OPTIONS
+@staticmethod
+def get_superpixel_options():
+    print("\n=== Superpixel Options ===")
+
+    while True:
+        try:
+            num_segments = int(
+                input ("Approximate number of regions --> ")
+            )
+
+            compactness = float(
+                input ("Compactness --> ")
+            )
+
+            sigma = float(
+                input ("Sigma --> ")
+            )
+
+            return {
+                "num_segments": num_segments,
+                "compactness": compactness,
+                "sigma": sigma
+            }
+
+        except ValueError:
+
+            print("Please enter valid numeric values *refer to notes*\n")
 
 
-        return output_path
+# ODM OPTIONS
 
+@staticmethod
 
-    @staticmethod
-    def get_project_name(output_path):
+def get_pipeline_options():
+    print("\n === ODM Options ===")
 
-        while True:
+    while True:
 
-            name = input("Enter output project name --> ").strip()
+        try:
+            split = int(input("Split Size --> "))
+            overlap = int(input("Overlap size --> "))
 
-            if not name:
-                print("Project name cannot be empty.\n")
-                continue
+            if split <= 0 or overlap < 0:
+                raise ValueError
 
-            project_folder = output_path / name
+            break
 
-            if project_folder.exists():
-                print("Project already exists. Choose another name.\n")
-                continue
+        except ValueError:
+            print("Invalid Split Settings\n")
 
-            return name
+    while True:
 
+        pc_quality = input(
+            "Point Cloud Quality (low, medium, high) --> "
+        ).strip().lower()
 
-    @staticmethod
-    def get_pipeline_options():
+        if pc_quality in ("low", "medium", "high"):
+            break
 
-        print("\n=== ODM Pipeline Options ===")
+        print("Invalid option.\n")
 
-        while True:
-            try:
-                split = int(input("Split Size --> "))
-                overlap = int(input("Overlap Size --> "))
-
-                if split <= 0 or overlap < 0:
-                    raise ValueError
-
-                break
-
-            except ValueError:
-                print("Split must be > 0 and overlap must be >= 0")
-
-        while True:
-            pc_quality = input("PC Quality (low/medium/high) --> ").strip().lower()
-
-            if pc_quality in ["low", "medium", "high"]:
-                break
-
-            print("Invalid option. Choose: low, medium, high")
-
-        return {
+        return{
             "split": split,
-            "split_overlap": overlap,
+            "overlap": overlap,
             "pc_quality": pc_quality
         }
 
-    @staticmethod
-    def get_ortho_options():
+#HELPER
 
-        print("\n=== Next Steps ===")
+@staticmethod
+def _get_existing_directory(prompt):
+    while True:
+        path = Path(
+            input(f"{prompt} --> ").strip()
+        )expanduser().resolve()
 
-        close = input(
-            "Would you like to continue to feature extraction? (yes/no) "
-        ).strip().lower()
+        if path.exists() and path.is_dir():
+            return path
+        print ("Directory not found.\n")
 
-        if close == "no":
-            print("Ending session")
-            sys.exit()
+@staticmethod
+def _get_output_directory(prompt):
+    path = Path(
+        input(f"{prompt} --> ").strip()
+    )expanduser().resolve()
 
-        print("Moving on...")
+    path.mkdir(parents=True, exist_ok=True)
 
-        while True:
+    return path
 
-            ortho = input(
-                "\nPlease enter orthomosaic file path --> "
-            ).strip()
+@staticmethod
+def _get_project_name(prompt):
+    while True:
+        name = input("Project Name --> ").strip()
 
-            ortho_path = Path(ortho).expanduser().resolve()
+        if not name:
+            print("Project name can not be empty.\n")
+            continue
 
-            if not ortho_path.exists():
-                print("File does not exist.\n")
-                continue
+        if (output_path / name).exists():
+            print("Project name already exists.\n")
+            continue
 
-            if ortho_path.suffix.lower() not in [".tif", ".tiff"]:
-                print("Must be a TIFF file.\n")
-                continue
-
-            return ortho_path
+        return name
