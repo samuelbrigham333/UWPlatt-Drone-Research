@@ -7,9 +7,10 @@ into perceptually similar regions called superpixels.
 
 from pathlib import Path
 
-import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+
+from ODM.raster.raster_loader import RasterLoader
 
 from skimage.segmentation import slic, mark_boundaries
 
@@ -35,18 +36,24 @@ class SuperpixelSegmenter:
     def run(self):
         self._load_image()
         self._generate_superpixels()
+        return self.labels
 
     def _load_image(self):
-        """
-        Load image from disk.
-        """
+        loader = RasterLoader(self.image_path)
+        bands = loader.load()
 
-        image = cv2.imread(self.image_path)
+        if bands.shape[0] < 3:
+            raise ValueError(
+                "Orthomosaic must contain at least three bands."
+            )
 
-        if image is None:
-            raise FileNotFoundError(self.image_path)
+        self.image = np.moveaxis(bands[:3], 0, -1)
 
-        self.image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        self.image -= self.image.min()
+
+        max_value = self.image.max()
+        if max_value > 0:
+            self.image /= max_value
 
     def _generate_superpixels(self):
 
@@ -55,7 +62,7 @@ class SuperpixelSegmenter:
             n_segments = self.num_segments,
             compactness = self.compactness,
             sigma = self.sigma,
-            start_label = 0
+            start_label = 1
         )
 
     def get_labels(self):
@@ -73,7 +80,7 @@ class SuperpixelSegmenter:
 
     def get_number_of_regions(self):
 
-        self.require_labels()
+        self._require_labels()
 
         return len(self.get_region_ids())
 

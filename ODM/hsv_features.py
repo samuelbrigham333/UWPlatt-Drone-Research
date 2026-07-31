@@ -1,45 +1,39 @@
-"""
-HSV Feature Extraction
-
-Converts RGB raster bands into HSV feature rasters
-"""
-
 import cv2
 import numpy as np
 
-class HSVFeatures:
-    def __init__(self, bands):
 
+class HSVFeatures:
+
+    def __init__(self, bands):
         self.bands = bands
 
     def calculate(self):
+
         rgb = self._create_rgb()
 
-        shv = cv2.cvtColor(
+        hsv = cv2.cvtColor(
             rgb,
-            cv2.COLOR_RGB2HSB
+            cv2.COLOR_RGB2HSV
         )
 
         return {
-            "Hue": hsv [:, : , 0].astype(np.flaot32),
-
-            "Saturation": hsv[:, : , 1].astype(np.float32),
-
-            "Value": hsv[:, : , 2].astype(np.float32),
+            "Hue": hsv[:, :, 0].astype(np.float32),
+            "Saturation": hsv[:, :, 1].astype(np.float32),
+            "Value": hsv[:, :, 2].astype(np.float32),
         }
 
     def _create_rgb(self):
-        """
-        Convert raster bands to RGB image
-        :return:
-        """
 
         red = self.bands[0]
         green = self.bands[1]
         blue = self.bands[2]
 
-        rgb = np.dstack((red, green, blue))
+        height, width = red.shape
 
-        rgb = np.clip(rgb, 0, 255)
+        rgb = np.empty((height, width, 3), dtype=np.uint8)
 
-        return rgb.astype(np.uint8)
+        rgb[:, :, 0] = np.clip(red,   0, 255).astype(np.uint8)
+        rgb[:, :, 1] = np.clip(green, 0, 255).astype(np.uint8)
+        rgb[:, :, 2] = np.clip(blue,  0, 255).astype(np.uint8)
+
+        return rgb

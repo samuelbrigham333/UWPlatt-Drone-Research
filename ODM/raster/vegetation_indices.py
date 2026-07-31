@@ -1,5 +1,5 @@
 """
-Vegettation index calculation module.
+Vegetation index calculation module.
 
 Computes common multispectral vegetation indices from
 an orthomosaic loaded by RasterLoader
@@ -10,39 +10,64 @@ vegetation index raster.
 
 import numpy as np
 
+
+
 class VegetationIndices:
     def __init__(self, bands):
+        self.bands = bands
 
-        self.blue = bands[0].astype(np.float32)
-        self.green = bands[1].astype(np.float32)
-        self.red = bands[2].astype(np.float32)
-        self.red_edge = bands[3].astype(np.float32)
-        self.nir = bands[4].astype(np.float32)
 
 #BASIC VEGETATION INDICES
 
     def ndvi(self):
-        return (self.nir - self.red) / (
-            self.nir + self.red + 1e-10
-        )
+        red = self.bands[2].astype(np.float32)
+        nir = self.bands[4].astype(np.float32)
+
+        result = (nir - red) / (nir + red + 1e-10)
+
+        del red
+        del nir
+
+        return result
 
     def gndvi(self):
-        return (self.nir - self.green) /(
-            self.nir + self.green + 1e-10
+        green = self.bands[1].astype(np.float32)
+        nir = self.bands[4].astype(np.float32)
+
+        result = (nir - green) / (
+            nir + green + 1e-10
         )
+
+        del green
+        del nir
+
+        return result
+
+
 
     def ndre(self):
-        return (self.nir - self.red_edge) / (
-            self.nir + self.red_edge + 1e-10
+        red_edge = self.bands[3].astype(np.float32)
+        nir = self.bands[4].astype(np.float32)
+
+        result = (nir - red_edge) / (
+            nir + red_edge + 1e-10
         )
 
+        del red_edge
+        del nir
+
+        return result
 #CUSTOM INDICES
 
     def evenson(self):
-        denominator = self.nir - self.red
+        red = self.bands[2].astype(np.float32)
+        red_edge = self.bands[3].astype(np.float32)
+        nir = self.bands[4].astype(np.float32)
+
+        denominator = nir - red
 
         result = np.full(
-            self.nir.shape,
+            nir.shape,
             np.nan,
             dtype=np.float32
         )
@@ -50,42 +75,37 @@ class VegetationIndices:
         mask = np.abs(denominator) > 0.2
 
         result[mask] = (
-            self.nir[mask] - self.red_edge[mask]
-        ) / denominator[mask]
+                               nir[mask] - red_edge[mask]
+                       ) / denominator[mask]
+
+        del red
+        del red_edge
+        del nir
+        del denominator
+        del mask
 
         return result
 
-    def ci_red_dege(self):
 
-        """
-        Chlorophyll index - Red Edge
-        """
+    def ci_red_edge(self):
+       red_edge = self.bands[3].astype(np.float32)
+       nir = self.bands[4].astype(np.float32)
 
-        result = np.full(
-            self.red_edge.shape,
-            np.nan,
-            dtype = np.float32
-        )
+       result = np.full(
+           red_edge.shape,
+           np.nan,
+           dtype=np.float32
+       )
 
-        mask = self.red_edge > 0.2
+       mask = red_edge > 0.2
 
-        result[mask] = (
-            self.nir[mask] - self.red_edge[mask]
-        ) / self.red_edge[mask]
+       result[mask] = (
+           nir[mask] - red_edge[mask]
+       ) / red_edge[mask]
 
-        return result
+       del red_edge
+       del nir
 
-#Public Interface
+       return result
 
-    def calculate_all(self):
-        """
-        Calculate all vegetation index
-        """
 
-        return{
-            "NDVI": self.ndvi(),
-            "GNDVI": self.gndvi(),
-            "NDRE": self.ndre(),
-            "CI_RedEdge": self.ci_red_dege(),
-            "Evenson": self.evenson(),
-        }

@@ -19,4 +19,4 @@ if __name__ == "__main__":
 
 
 
-#what we want for the patch we grab want the average from all of the ndvi's t
+#what we want for the patch we grab want the average from all of the ndvi's

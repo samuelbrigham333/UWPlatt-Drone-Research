@@ -119,93 +119,87 @@ class ODMApplication:
 
         print("\n========== Feature Pipeline ==========")
 
-        #
+        # =====================================================
         # Load orthomosaic
-        #
+        # =====================================================
 
         print("Loading orthomosaic...")
 
         loader = RasterLoader(ortho_path)
-
         bands = loader.load()
 
-        #
+        # =====================================================
         # Calculate vegetation indices
-        #
+        # =====================================================
 
         print("Calculating vegetation indices...")
 
         vegetation = VegetationIndices(bands)
-
         vegetation_features = vegetation.calculate_all()
 
-        #
+        # =====================================================
         # Calculate HSV features
-        #
+        # =====================================================
 
         print("Calculating HSV features...")
 
         hsv = HSVFeatures(bands)
-
         hsv_features = hsv.calculate()
 
-        #
-        # Merge all feature rasters
-        #
+        # =====================================================
+        # Combine all feature rasters
+        # =====================================================
 
         all_features = {
-
             **vegetation_features,
-
             **hsv_features
-
         }
 
-        print(
-            f"Generated {len(all_features)} feature rasters."
-        )
+        print(f"Generated {len(all_features)} feature rasters.")
 
-        #
+        # =====================================================
         # Generate superpixels
-        #
+        # =====================================================
 
         superpixel_options = UserInterface.get_superpixel_options()
 
         print("Generating superpixels...")
 
         segmenter = SuperpixelSegmenter(
-
             ortho_path,
-
             **superpixel_options
-
         )
 
-        segmenter.run()
+        labels = segmenter.run()
 
-        print(
-            f"Generated {segmenter.get_number_of_regions()} superpixels."
-        )
+        print(f"Generated {segmenter.get_number_of_regions()} superpixels.")
 
-        #
+        # Optional while debugging
+        segmenter.visualize()
+
+        # =====================================================
         # Extract region features
-        #
+        # =====================================================
 
         print("Extracting region features...")
 
         extractor = RegionFeatureExtractor(
-
-            segmenter,
-
+            labels,
             all_features
-
         )
 
         region_features = extractor.extract_features()
 
-        print(
-            f"Extracted features for {len(region_features)} regions."
-        )
+        print(f"Extracted features for {len(region_features)} regions.")
+
+        # Print one example region for debugging
+        if region_features:
+            first_region = next(iter(region_features))
+
+            print(f"\nExample Region: {first_region}")
+
+            for key, value in region_features[first_region].items():
+                print(f"{key}: {value}")
 
         print("\nFeature pipeline complete.")
 
