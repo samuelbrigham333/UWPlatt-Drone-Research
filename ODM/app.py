@@ -116,50 +116,16 @@ class ODMApplication:
     # =====================================================
 
     def run_feature_pipeline(self, ortho_path):
+        print("\n === Feature Pipeline ===")
 
-        print("\n========== Feature Pipeline ==========")
-
-        # =====================================================
-        # Load orthomosaic
-        # =====================================================
+        #LOAD ORTHOMOSIAC
 
         print("Loading orthomosaic...")
 
         loader = RasterLoader(ortho_path)
         bands = loader.load()
 
-        # =====================================================
-        # Calculate vegetation indices
-        # =====================================================
-
-        print("Calculating vegetation indices...")
-
-        vegetation = VegetationIndices(bands)
-        vegetation_features = vegetation.calculate_all()
-
-        # =====================================================
-        # Calculate HSV features
-        # =====================================================
-
-        print("Calculating HSV features...")
-
-        hsv = HSVFeatures(bands)
-        hsv_features = hsv.calculate()
-
-        # =====================================================
-        # Combine all feature rasters
-        # =====================================================
-
-        all_features = {
-            **vegetation_features,
-            **hsv_features
-        }
-
-        print(f"Generated {len(all_features)} feature rasters.")
-
-        # =====================================================
-        # Generate superpixels
-        # =====================================================
+        #GENERATE SUPERPIXELS
 
         superpixel_options = UserInterface.get_superpixel_options()
 
@@ -170,29 +136,67 @@ class ODMApplication:
             **superpixel_options
         )
 
-        labels = segmenter.run()
+        segmenter.run()
 
-        print(f"Generated {segmenter.get_number_of_regions()} superpixels.")
+        labels = segmenter.get_labels()
 
-        # Optional while debugging
-        segmenter.visualize()
-
-        # =====================================================
-        # Extract region features
-        # =====================================================
-
-        print("Extracting region features...")
-
-        extractor = RegionFeatureExtractor(
-            labels,
-            all_features
+        print(
+            f"Generated {segmenter.get_number_of_regions()} superpixels."
         )
 
-        region_features = extractor.extract_features()
+        #optional debug feature
+        segmenter.visualize()
 
-        print(f"Extracted features for {len(region_features)} regions.")
+        extractor = RegionFeatureExtractor(labels)
 
-        # Print one example region for debugging
+        #VEGETATION FEATURES
+        print("Calculating vegetation indices...")
+
+        vegetation = VegetationIndices(bands)
+
+        ndvi = vegetation.ndvi()
+        extractor.add_feature("NDVI", ndvi)
+        del ndvi
+
+        gndvi = vegetation.gndvi()
+        extractor.add_feature("GNDVI", gndvi)
+        del gndvi
+
+        ndre = vegetation.ndre()
+        extractor.add_feature("NDRE", ndre)
+        del ndre
+
+        ci = vegetation.ci_red_edge()
+        extractor.add_feature("CI_RedEdge", ci)
+        del ci
+
+        evenson = vegetation.evenson()
+        extractor.add_feature("EVENSON", evenson)
+        del evenson
+
+        #HSV FEATURES
+
+        print("Calculating HSV features...")
+
+        hsv = HSVFeatures(bands)
+
+        hsv_features = hsv.calculate()
+
+        extractor.add_feature("Hue", hsv_features["Hue"])
+        extractor.add_feature("Saturation", hsv_features["Saturation"])
+        extractor.add_feature("Value", hsv_features["Value"])
+
+        del hsv_features
+
+        #FINISHED
+
+        region_features = extractor.get_features()
+
+        print(
+            f"Extracted features for {len(region_features)} regions."
+        )
+
+        #debug output
         if region_features:
             first_region = next(iter(region_features))
 
@@ -201,9 +205,9 @@ class ODMApplication:
             for key, value in region_features[first_region].items():
                 print(f"{key}: {value}")
 
-        print("\nFeature pipeline complete.")
+            print("\nFeature pipeline complete.")
 
-        return region_features
+            return region_features
 
     
     # Docker
