@@ -8,11 +8,13 @@ Features are added one at a time to minimalize memory usage.
 import numpy as np
 
 class RegionFeatureExtractor:
+
     def __init__(self, labels):
+
         self.labels = labels
         self.region_features = {}
 
-        #caceh region ids
+        # Cache unique region IDs
         self.region_ids = np.unique(labels)
 
         for region_id in self.region_ids:
@@ -20,9 +22,10 @@ class RegionFeatureExtractor:
                 "area": int(np.count_nonzero(labels == region_id)),
             }
 
-    #Public Interface
+    # Public Interface
 
     def add_feature(self, feature_name, raster):
+
         for region_id in self.region_ids:
 
             stats = self._extract_region(
@@ -40,7 +43,47 @@ class RegionFeatureExtractor:
     def get_features(self):
         return self.region_features
 
+    def print_region_summary(self, region_id):
+
+        if region_id not in self.region_features:
+            raise ValueError(f"Region {region_id} does not exist.")
+
+        region = self.region_features[region_id]
+
+        print("=" * 60)
+        print(f"Region {region_id} Summary")
+        print("=" * 60)
+
+        print(f"\nArea: {region['area']:,} pixels\n")
+
+        groups = {}
+
+        for key, value in region.items():
+
+            if key == "area":
+                continue
+
+            feature, stat = key.rsplit("_", 1)
+            groups.setdefault(feature, {})[stat] = value
+
+        for feature in sorted(groups):
+
+            print(feature)
+            print("-" * len(feature))
+
+            stats = groups[feature]
+
+            for stat in ("mean", "std", "min", "max"):
+
+                if stat in stats:
+                    print(f"  {stat.capitalize():<4}: {stats[stat]:.4f}")
+
+            print()
+
+    # Private Methods
+
     def _extract_region(self, region_id, raster):
+
         mask = self.labels == region_id
 
         values = raster[mask]
@@ -50,15 +93,15 @@ class RegionFeatureExtractor:
         if values.size == 0:
 
             return {
-            "mean": np.nan,
-            "std": np.nan,
-            "min": np.nan,
-            "max": np.nan,
-        }
+                "mean": np.nan,
+                "std": np.nan,
+                "min": np.nan,
+                "max": np.nan,
+            }
 
-        return{
+        return {
             "mean": float(np.mean(values)),
             "std": float(np.std(values)),
-            "min":float(np.min(values)),
-            "max":float(np.max(values)),
+            "min": float(np.min(values)),
+            "max": float(np.max(values)),
         }

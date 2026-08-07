@@ -15,6 +15,9 @@ Workflow
 
 import time
 
+import numpy as np
+
+from ODM.TileGenerator import TileGenerator
 from ODM.command_builder import ODMCommandBuilder
 from ODM.docker_manager import DockerManager
 from ODM.runner import ODMRunner
@@ -122,27 +125,55 @@ class ODMApplication:
 
         print("Loading orthomosaic...")
 
+
+
+
+
+
+
         loader = RasterLoader(ortho_path)
+
         bands = loader.load()
 
-        #GENERATE SUPERPIXELS
+        metadata = loader.get_metadata()
+
+
+        total_area = self._calculate_total_area(metadata)
 
         superpixel_options = UserInterface.get_superpixel_options()
 
+        num_segments = self._calculate_num_segments(total_area, superpixel_options["region_area"])
+
+        generator = TileGenerator(
+            width=metadata["width"],
+            height=metadata["height"],
+            tile_size=superpixel_options["tile_size"]
+        )
+
+        print("\nOrthomosaic Information")
+        print("-------------------------")
+
+        print(f"Resolution              : {metadata['pixel_width']:.3f} m/pixel")
+        print(f"Total Area              : {total_area:,.2f} m²")
+        print(f"Desired Region Size     : {superpixel_options['region_area']:.2f} m²")
+        print(f"Estimated Region        : {num_segments:,}")
+
+
         print("Generating superpixels...")
 
+        rgb = np.moveaxis(bands[:3], 0, -1)
+        rgb -= rgb.min()
+        if rgb.max() > 0:
+            rgb /= rgb.max()
+
         segmenter = SuperpixelSegmenter(
-            ortho_path,
-            **superpixel_options
+            num_segments = num_segments,
+            compactness = superpixel_options["compactness"],
+            sigma = superpixel_options["sigma"]
         )
 
-        segmenter.run()
-
-        labels = segmenter.get_labels()
-
-        print(
-            f"Generated {segmenter.get_number_of_regions()} superpixels."
-        )
+        labels = segmenter.run(rgb)
+        print(f"Generated {len(np.unique(labels))} superpixels.")
 
         #optional debug feature
         segmenter.visualize()
@@ -209,7 +240,30 @@ class ODMApplication:
 
             return region_features
 
-    
+
+
+    def _calculate_total_area(self, metadata):
+        pixel_area = (
+            metadata["pixel_width"] *
+            metadata["pixel_height"]
+        )
+
+        return(
+            metadata["width"] *
+            metadata["height"] *
+            pixel_area
+        )
+
+    def _calculate_num_segments(
+            self,
+            total_area,
+            desired_region_area
+    ):
+        return max(
+            1,
+            round(total_area / desired_region_area)
+        )
+
     # Docker
 
 
@@ -226,3 +280,4 @@ class ODMApplication:
         while not self.docker.docker_running():
 
             time.sleep(10)
+

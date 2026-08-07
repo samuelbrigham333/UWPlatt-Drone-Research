@@ -40,7 +40,7 @@ class SuperpixelSegmenter:
 
     def _load_image(self):
         loader = RasterLoader(self.image_path)
-        bands = loader.load()
+        bands = loader.load(band_indexes = [1, 2, 3])
 
         if bands.shape[0] < 3:
             raise ValueError(
