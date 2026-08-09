@@ -7,15 +7,15 @@ Workflow
 --------
 1. User chooses workflow.
 2. Optionally run OpenDroneMap.
-3. Load orthomosaic.
-4. Calculate feature rasters.
-5. Generate superpixels.
-6. Extract region features.
+3. Read orthomosaic metadata.
+4. Generate tiles.
+5. Process each tile independently.
+6. Generate superpixels for each tile.
+7. Calculate feature rasters for each tile.
+8. Extract region features.
 """
 
 import time
-
-import numpy as np
 
 from ODM.TileGenerator import TileGenerator
 from ODM.command_builder import ODMCommandBuilder
@@ -37,11 +37,10 @@ from ODM.region_feature_extractor import RegionFeatureExtractor
 class ODMApplication:
 
     def __init__(self):
+
         self.docker = DockerManager()
 
-    # =====================================================
-    # Main Application
-    # =====================================================
+    # MAIN APPLICATION
 
     def execute(self):
 
@@ -62,9 +61,7 @@ class ODMApplication:
 
         self.run_feature_pipeline(ortho_path)
 
-    # =====================================================
-    # ODM Processing
-    # =====================================================
+    # ODM PROCESSING
 
     def run_odm_pipeline(self):
 
@@ -107,42 +104,65 @@ class ODMApplication:
 
         print("\nODM Processing Complete.")
 
-        #
-        # We now ask where the orthophoto is.
-        # Eventually this can be automated.
-        #
-
         return UserInterface.get_orthomosaic_path()
 
-    # =====================================================
-    # Feature Extraction Pipeline
-    # =====================================================
+    # FEATURE PIPELINE
 
     def run_feature_pipeline(self, ortho_path):
-        print("\n === Feature Pipeline ===")
 
-        #LOAD ORTHOMOSIAC
+        print("\n=== Feature Pipeline ===")
 
-        print("Loading orthomosaic...")
+        # READ METADATA ONLY
 
-
-
-
-
-
+        print("\nReading orthomosaic information...")
 
         loader = RasterLoader(ortho_path)
 
-        bands = loader.load()
-
         metadata = loader.get_metadata()
-
 
         total_area = self._calculate_total_area(metadata)
 
-        superpixel_options = UserInterface.get_superpixel_options()
+        print("\nOrthomosaic Information")
+        print("-------------------------")
 
-        num_segments = self._calculate_num_segments(total_area, superpixel_options["region_area"])
+        print(
+            f"Resolution          : "
+            f"{metadata['pixel_width']:.3f} m/pixel"
+        )
+
+        print(
+            f"Total Area          : "
+            f"{total_area:,.2f} m²"
+        )
+
+        # GET SUPERPIXEL OPTIONS
+
+        superpixel_options = (
+            UserInterface.get_superpixel_options()
+        )
+
+        num_segments = self._calculate_num_segments(
+            total_area,
+            superpixel_options["region_area"]
+        )
+
+        print(
+            f"Desired Region Size : "
+            f"{superpixel_options['region_area']:.2f} m²"
+        )
+
+        print(
+            f"Estimated Regions   : "
+            f"{num_segments:,}"
+        )
+
+        print(
+            f"Tile Size           : "
+            f"{superpixel_options['tile_size']} × "
+            f"{superpixel_options['tile_size']} pixels"
+        )
+
+        # CREATE TILE GENERATOR
 
         generator = TileGenerator(
             width=metadata["width"],
@@ -150,122 +170,196 @@ class ODMApplication:
             tile_size=superpixel_options["tile_size"]
         )
 
-        print("\nOrthomosaic Information")
-        print("-------------------------")
-
-        print(f"Resolution              : {metadata['pixel_width']:.3f} m/pixel")
-        print(f"Total Area              : {total_area:,.2f} m²")
-        print(f"Desired Region Size     : {superpixel_options['region_area']:.2f} m²")
-        print(f"Estimated Region        : {num_segments:,}")
-
-
-        print("Generating superpixels...")
-
-        rgb = np.moveaxis(bands[:3], 0, -1)
-        rgb -= rgb.min()
-        if rgb.max() > 0:
-            rgb /= rgb.max()
+        # CREATE SUPERPIXEL SEGMENTER
 
         segmenter = SuperpixelSegmenter(
-            num_segments = num_segments,
-            compactness = superpixel_options["compactness"],
-            sigma = superpixel_options["sigma"]
+            image_path=ortho_path,
+            num_segments=num_segments,
+            compactness=superpixel_options["compactness"],
+            sigma=superpixel_options["sigma"]
         )
 
-        labels = segmenter.run(rgb)
-        print(f"Generated {len(np.unique(labels))} superpixels.")
+        # PROCESS TILES
 
-        #optional debug feature
-        segmenter.visualize()
+        all_region_features = {}
 
-        extractor = RegionFeatureExtractor(labels)
+        tile_number = 0
 
-        #VEGETATION FEATURES
-        print("Calculating vegetation indices...")
+        for tile in generator.generate():
 
-        vegetation = VegetationIndices(bands)
+            tile_number += 1
 
-        ndvi = vegetation.ndvi()
-        extractor.add_feature("NDVI", ndvi)
-        del ndvi
+            print(
+                f"\nProcessing tile {tile_number}..."
+            )
 
-        gndvi = vegetation.gndvi()
-        extractor.add_feature("GNDVI", gndvi)
-        del gndvi
+            print(
+                f"Position: "
+                f"({tile['x']}, {tile['y']})"
+            )
 
-        ndre = vegetation.ndre()
-        extractor.add_feature("NDRE", ndre)
-        del ndre
+            print(
+                f"Size: "
+                f"{tile['width']} × {tile['height']}"
+            )
 
-        ci = vegetation.ci_red_edge()
-        extractor.add_feature("CI_RedEdge", ci)
-        del ci
+            # GENERATE SUPERPIXELS
 
-        evenson = vegetation.evenson()
-        extractor.add_feature("EVENSON", evenson)
-        del evenson
+            print("Generating superpixels...")
 
-        #HSV FEATURES
+            labels = segmenter.run(tile)
 
-        print("Calculating HSV features...")
+            region_count = len(set(labels.flatten()))
 
-        hsv = HSVFeatures(bands)
+            print(
+                f"Generated {region_count} "
+                f"superpixels in tile."
+            )
 
-        hsv_features = hsv.calculate()
+            # LOAD ONLY THIS TILE'S BANDS
 
-        extractor.add_feature("Hue", hsv_features["Hue"])
-        extractor.add_feature("Saturation", hsv_features["Saturation"])
-        extractor.add_feature("Value", hsv_features["Value"])
+            bands = loader.load_window(
+                tile["x"],
+                tile["y"],
+                tile["width"],
+                tile["height"]
+            )
 
-        del hsv_features
+            # REGION FEATURE EXTRACTION
 
-        #FINISHED
+            extractor = RegionFeatureExtractor(labels)
 
-        region_features = extractor.get_features()
+            # VEGETATION FEATURES
+
+            print("Calculating vegetation indices...")
+
+            vegetation = VegetationIndices(bands)
+
+            ndvi = vegetation.ndvi()
+            extractor.add_feature(
+                "NDVI",
+                ndvi
+            )
+            del ndvi
+
+            gndvi = vegetation.gndvi()
+            extractor.add_feature(
+                "GNDVI",
+                gndvi
+            )
+            del gndvi
+
+            ndre = vegetation.ndre()
+            extractor.add_feature(
+                "NDRE",
+                ndre
+            )
+            del ndre
+
+            ci = vegetation.ci_red_edge()
+            extractor.add_feature(
+                "CI_RedEdge",
+                ci
+            )
+            del ci
+
+            evenson = vegetation.evenson()
+            extractor.add_feature(
+                "EVENSON",
+                evenson
+            )
+            del evenson
+
+            # HSV FEATURES
+
+            print("Calculating HSV features...")
+
+            hsv = HSVFeatures(bands)
+
+            hsv_features = hsv.calculate()
+
+            extractor.add_feature(
+                "Hue",
+                hsv_features["Hue"]
+            )
+
+            extractor.add_feature(
+                "Saturation",
+                hsv_features["Saturation"]
+            )
+
+            extractor.add_feature(
+                "Value",
+                hsv_features["Value"]
+            )
+
+            del hsv_features
+            del hsv
+
+            # SAVE TILE RESULTS
+
+            tile_features = extractor.get_features()
+
+            print(
+                f"Extracted features for "
+                f"{len(tile_features)} regions."
+            )
+
+            # ADD TILE RESULTS TO MASTER RESULTS
+
+            all_region_features.update(
+                tile_features
+            )
+
+            # RELEASE TILE MEMORY
+
+            del bands
+            del labels
+            del extractor
+
+        # PIPELINE COMPLETE
+
+        print("\n=== Feature Pipeline Complete ===")
 
         print(
-            f"Extracted features for {len(region_features)} regions."
+            f"Total regions extracted: "
+            f"{len(all_region_features):,}"
         )
 
-        #debug output
-        if region_features:
-            first_region = next(iter(region_features))
+        return all_region_features
 
-            print(f"\nExample Region: {first_region}")
-
-            for key, value in region_features[first_region].items():
-                print(f"{key}: {value}")
-
-            print("\nFeature pipeline complete.")
-
-            return region_features
-
-
+    # AREA CALCULATION
 
     def _calculate_total_area(self, metadata):
+
         pixel_area = (
             metadata["pixel_width"] *
             metadata["pixel_height"]
         )
 
-        return(
+        return (
             metadata["width"] *
             metadata["height"] *
             pixel_area
         )
 
+    # SUPERPIXEL CALCULATION
+
     def _calculate_num_segments(
-            self,
-            total_area,
-            desired_region_area
+        self,
+        total_area,
+        desired_region_area
     ):
+
         return max(
             1,
-            round(total_area / desired_region_area)
+            round(
+                total_area /
+                desired_region_area
+            )
         )
 
-    # Docker
-
+    # DOCKER
 
     def ensure_docker_running(self):
 
