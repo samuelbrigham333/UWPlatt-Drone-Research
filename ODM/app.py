@@ -1,377 +1,1051 @@
 """
-Application controller for the drone processing pipeline.
+Main ODM application pipeline.
 
-Coordinates the complete application workflow.
+Responsibilities
+----------------
+1. Run ODM processing when requested.
+2. Analyze an existing orthomosaic.
+3. Process large orthomosaics tile-by-tile.
+4. Generate SLIC superpixels for each tile.
+5. Calculate vegetation indices from the real spectral bands.
+6. Calculate HSV features from RGB.
+7. Extract statistics for every superpixel region.
 
-Workflow
---------
-1. User chooses workflow.
-2. Optionally run OpenDroneMap.
-3. Read orthomosaic metadata.
-4. Generate tiles.
-5. Process each tile independently.
-6. Generate superpixels for each tile.
-7. Calculate feature rasters for each tile.
-8. Extract region features.
+Expected 5-band multispectral order:
+
+    Band 0 -> Blue
+    Band 1 -> Green
+    Band 2 -> Red
+    Band 3 -> Red Edge
+    Band 4 -> NIR
+
+No Alpha band is assumed.
 """
 
-import time
+from pathlib import Path
 
-from ODM.TileGenerator import TileGenerator
-from ODM.command_builder import ODMCommandBuilder
-from ODM.docker_manager import DockerManager
-from ODM.runner import ODMRunner
+import numpy as np
+import rasterio
+from rasterio.windows import Window
+
 from ODM.ui import UserInterface
-
-from ODM.validate_images import validate_images
+from ODM.docker_manager import DockerManager
+from ODM.command_builder import ODMCommandBuilder
+from ODM.runner import ODMRunner
 
 from ODM.raster.raster_loader import RasterLoader
 from ODM.raster.vegetation_indices import VegetationIndices
-
 from ODM.hsv_features import HSVFeatures
 
 from ODM.superpixel_segmenter import SuperpixelSegmenter
 from ODM.region_feature_extractor import RegionFeatureExtractor
 
+from ODM.superpixel_overlay_writer import SuperpixelOverlayWriter
 
 class ODMApplication:
 
     def __init__(self):
 
-        self.docker = DockerManager()
+        self.results = {}
 
-    # MAIN APPLICATION
+    # =========================================================
+    # MAIN ENTRY POINT
+    # =========================================================
 
     def execute(self):
 
-        choice = UserInterface.get_start_option()
+        while True:
 
-        if choice == "1":
+            print(
+                "\n=== DRONE PROCESSING ==="
+            )
 
-            ortho_path = self.run_odm_pipeline()
+            print(
+                "1. Run ODM Processing"
+            )
 
-        elif choice == "2":
+            print(
+                "2. Analyze Existing Ortho"
+            )
 
-            ortho_path = UserInterface.get_orthomosaic_path()
+            print(
+                "3. Exit"
+            )
 
-        else:
+            selection = input(
+                "\nSelection --> "
+            ).strip()
 
-            print("\nGoodbye.")
-            return
+            if selection == "1":
 
-        self.run_feature_pipeline(ortho_path)
+                ortho_path = (
+                    self.run_odm_pipeline()
+                )
 
-    # ODM PROCESSING
+                self.run_feature_pipeline(
+                    ortho_path
+                )
+
+            elif selection == "2":
+
+                print(
+                    "\n=== Feature Extraction ==="
+                )
+
+                ortho_path = Path(
+                    input(
+                        "Orthomosaic (.tif) --> "
+                    ).strip()
+                )
+
+                if not ortho_path.exists():
+
+                    print(
+                        f"\nFile does not exist:\n"
+                        f"{ortho_path}"
+                    )
+
+                    continue
+
+                self.run_feature_pipeline(
+                    ortho_path
+                )
+
+            elif selection == "3":
+
+                print(
+                    "\nExiting..."
+                )
+
+                break
+
+            else:
+
+                print(
+                    "\nInvalid selection."
+                )
+
+    # =========================================================
+    # ODM PIPELINE
+    # =========================================================
 
     def run_odm_pipeline(self):
 
+        print(
+            "\n=== ODM Processing ==="
+        )
+
+        # -----------------------------------------------------
+        # DOCKER
+        # -----------------------------------------------------
+
         self.ensure_docker_running()
 
-        config = UserInterface.get_odm_configuration()
+        # -----------------------------------------------------
+        # USER CONFIGURATION
+        # -----------------------------------------------------
 
-        validate_images(config["image_path"])
-
-        project_folder = (
-            config["output_path"] /
-            config["project_name"]
+        config = (
+            UserInterface.get_odm_configuration()
         )
 
-        project_folder.mkdir(
-            parents=True,
-            exist_ok=True
+        # -----------------------------------------------------
+        # BUILD ODM COMMAND
+        # -----------------------------------------------------
+
+        command_builder = ODMCommandBuilder(
+            config
         )
 
-        print("\nODM Project")
-        print(project_folder)
-
-        builder = ODMCommandBuilder(
-
-            image_path=config["image_path"],
-
-            output_path=config["output_path"],
-
-            project_name=config["project_name"],
-
-            options=config["pipeline_options"]
-
+        command = (
+            command_builder.build()
         )
 
-        command = builder.build_command()
+        print(
+            "\nRunning ODM..."
+        )
 
-        runner = ODMRunner(command)
+        runner = ODMRunner(
+            command
+        )
 
         runner.run()
 
-        print("\nODM Processing Complete.")
+        # -----------------------------------------------------
+        # DETERMINE ORTHOMOSAIC
+        # -----------------------------------------------------
 
-        return UserInterface.get_orthomosaic_path()
+        ortho_path = self._find_orthomosaic(
+            config
+        )
 
+        print(
+            "\nODM processing complete."
+        )
+
+        print(
+            f"Orthomosaic:\n{ortho_path}"
+        )
+
+        return ortho_path
+
+    # =========================================================
+    # DOCKER
+    # =========================================================
+
+    def ensure_docker_running(self):
+
+        if DockerManager.docker_running():
+
+            return
+
+        print(
+            "Starting Docker Desktop..."
+        )
+
+        DockerManager.start_docker()
+
+        DockerManager.wait_for_docker()
+
+    # =========================================================
+    # FIND ORTHOMOSAIC
+    # =========================================================
+
+    @staticmethod
+    def _find_orthomosaic(config):
+
+        project_path = Path(
+            config.project_path
+        )
+
+        candidates = [
+
+            project_path /
+            "odm_orthophoto" /
+            "odm_orthophoto.tif",
+
+            project_path /
+            "odm_orthophoto" /
+            "odm_orthophoto.original.tif"
+        ]
+
+        for path in candidates:
+
+            if path.exists():
+
+                return path
+
+        raise FileNotFoundError(
+            "Could not locate the ODM "
+            "orthomosaic."
+        )
+
+    # =========================================================
     # FEATURE PIPELINE
+    # =========================================================
 
-    def run_feature_pipeline(self, ortho_path):
+    def run_feature_pipeline(
+        self,
+        ortho_path
+    ):
 
-        print("\n=== Feature Pipeline ===")
+        ortho_path = Path(
+            ortho_path
+        )
 
-        # READ METADATA ONLY
+        if not ortho_path.exists():
 
-        print("\nReading orthomosaic information...")
+            raise FileNotFoundError(
+                f"Orthomosaic does not exist:\n"
+                f"{ortho_path}"
+            )
 
-        loader = RasterLoader(ortho_path)
+        print(
+            "\n=== Feature Pipeline ==="
+        )
 
-        metadata = loader.get_metadata()
+        # -----------------------------------------------------
+        # READ ORTHOMOSAIC INFORMATION
+        # -----------------------------------------------------
 
-        total_area = self._calculate_total_area(metadata)
+        print(
+            "\nReading orthomosaic information..."
+        )
 
-        print("\nOrthomosaic Information")
-        print("-------------------------")
+        metadata = self._read_raster_metadata(
+            ortho_path
+        )
+
+        pixel_width = metadata[
+            "pixel_width"
+        ]
+
+        pixel_height = metadata[
+            "pixel_height"
+        ]
+
+        width = metadata[
+            "width"
+        ]
+
+        height = metadata[
+            "height"
+        ]
+
+        band_count = metadata[
+            "count"
+        ]
+
+        total_area_m2 = (
+            width *
+            height *
+            pixel_width *
+            pixel_height
+        )
+
+        print(
+            "\nOrthomosaic Information"
+        )
+
+        print(
+            "-------------------------"
+        )
 
         print(
             f"Resolution          : "
-            f"{metadata['pixel_width']:.3f} m/pixel"
+            f"{pixel_width:.3f} m/pixel"
         )
 
         print(
             f"Total Area          : "
-            f"{total_area:,.2f} m²"
+            f"{total_area_m2:,.2f} m²"
         )
 
-        # GET SUPERPIXEL OPTIONS
+        print(
+            f"Bands               : "
+            f"{band_count}"
+        )
+
+        # -----------------------------------------------------
+        # VERIFY SPECTRAL BANDS
+        # -----------------------------------------------------
+
+        if band_count < 5:
+
+            raise ValueError(
+                "\nThis feature pipeline requires "
+                "at least 5 spectral bands:\n\n"
+                "Band 0 -> Blue\n"
+                "Band 1 -> Green\n"
+                "Band 2 -> Red\n"
+                "Band 3 -> Red Edge\n"
+                "Band 4 -> NIR\n\n"
+                f"The TIFF only contains "
+                f"{band_count} bands."
+            )
+
+        print(
+            "\nSpectral band configuration:"
+        )
+
+        print(
+            "  Band 1 -> Blue"
+        )
+
+        print(
+            "  Band 2 -> Green"
+        )
+
+        print(
+            "  Band 3 -> Red"
+        )
+
+        print(
+            "  Band 4 -> Red Edge"
+        )
+
+        print(
+            "  Band 5 -> NIR"
+        )
+
+        # -----------------------------------------------------
+        # SUPERPIXEL OPTIONS
+        # -----------------------------------------------------
 
         superpixel_options = (
             UserInterface.get_superpixel_options()
         )
 
-        num_segments = self._calculate_num_segments(
-            total_area,
-            superpixel_options["region_area"]
+        region_area = float(
+            superpixel_options[
+                "region_area"
+            ]
+        )
+
+        compactness = float(
+            superpixel_options[
+                "compactness"
+            ]
+        )
+
+        sigma = float(
+            superpixel_options[
+                "sigma"
+            ]
+        )
+
+        tile_size = int(
+            superpixel_options[
+                "tile_size"
+            ]
         )
 
         print(
-            f"Desired Region Size : "
-            f"{superpixel_options['region_area']:.2f} m²"
-        )
-
-        print(
-            f"Estimated Regions   : "
-            f"{num_segments:,}"
+            f"\nDesired Region Size : "
+            f"{region_area:.2f} m²"
         )
 
         print(
             f"Tile Size           : "
-            f"{superpixel_options['tile_size']} × "
-            f"{superpixel_options['tile_size']} pixels"
+            f"{tile_size} × {tile_size} pixels"
         )
 
-        # CREATE TILE GENERATOR
+        # -----------------------------------------------------
+        # APPROXIMATE TOTAL REGIONS
+        # -----------------------------------------------------
 
-        generator = TileGenerator(
-            width=metadata["width"],
-            height=metadata["height"],
-            tile_size=superpixel_options["tile_size"]
+        estimated_regions = max(
+            1,
+            int(
+                round(
+                    total_area_m2 /
+                    region_area
+                )
+            )
         )
 
-        # CREATE SUPERPIXEL SEGMENTER
-
-        segmenter = SuperpixelSegmenter(
-            image_path=ortho_path,
-            num_segments=num_segments,
-            compactness=superpixel_options["compactness"],
-            sigma=superpixel_options["sigma"]
+        print(
+            f"Estimated Regions   : "
+            f"{estimated_regions:,}"
         )
 
-        # PROCESS TILES
+        # -----------------------------------------------------
+        # PIXEL AREA
+        # -----------------------------------------------------
 
-        all_region_features = {}
+        pixel_area_m2 = (
+            pixel_width *
+            pixel_height
+        )
+
+        # -----------------------------------------------------
+        # RASTER LOADER
+        # -----------------------------------------------------
+
+        loader = RasterLoader(
+            ortho_path
+        )
+
+        # -----------------------------------------------------
+        # RESULTS
+        # -----------------------------------------------------
+
+        all_regions = {}
 
         tile_number = 0
 
-        for tile in generator.generate():
+        # -----------------------------------------------------
+        # PROCESS TILES
+        # -----------------------------------------------------
 
-            tile_number += 1
+        with rasterio.open(
+            ortho_path
+        ) as src:
 
-            print(
-                f"\nProcessing tile {tile_number}..."
+            total_tiles_x = (
+                int(
+                    np.ceil(
+                        width /
+                        tile_size
+                    )
+                )
+            )
+
+            total_tiles_y = (
+                int(
+                    np.ceil(
+                        height /
+                        tile_size
+                    )
+                )
+            )
+
+            total_tiles = (
+                total_tiles_x *
+                total_tiles_y
             )
 
             print(
-                f"Position: "
-                f"({tile['x']}, {tile['y']})"
+                f"\nTotal tiles to process: "
+                f"{total_tiles}"
             )
 
-            print(
-                f"Size: "
-                f"{tile['width']} × {tile['height']}"
-            )
+            for row in range(
+                0,
+                height,
+                tile_size
+            ):
 
-            # GENERATE SUPERPIXELS
+                for col in range(
+                    0,
+                    width,
+                    tile_size
+                ):
 
-            print("Generating superpixels...")
+                    tile_number += 1
 
-            labels = segmenter.run(tile)
+                    tile_width = min(
+                        tile_size,
+                        width - col
+                    )
 
-            region_count = len(set(labels.flatten()))
+                    tile_height = min(
+                        tile_size,
+                        height - row
+                    )
 
-            print(
-                f"Generated {region_count} "
-                f"superpixels in tile."
-            )
+                    print(
+                        "\n========================================"
+                    )
 
-            # LOAD ONLY THIS TILE'S BANDS
+                    print(
+                        f"Processing tile "
+                        f"{tile_number}/{total_tiles}..."
+                    )
 
-            bands = loader.load_window(
-                tile["x"],
-                tile["y"],
-                tile["width"],
-                tile["height"]
-            )
+                    print(
+                        f"Position: "
+                        f"({col}, {row})"
+                    )
 
-            # REGION FEATURE EXTRACTION
+                    print(
+                        f"Size: "
+                        f"{tile_width} × "
+                        f"{tile_height} pixels"
+                    )
 
-            extractor = RegionFeatureExtractor(labels)
+                    # -------------------------------------------------
+                    # TILE WINDOW
+                    # -------------------------------------------------
 
-            # VEGETATION FEATURES
+                    window = Window(
+                        col,
+                        row,
+                        tile_width,
+                        tile_height
+                    )
 
-            print("Calculating vegetation indices...")
+                    # -------------------------------------------------
+                    # TILE AREA
+                    # -------------------------------------------------
 
-            vegetation = VegetationIndices(bands)
+                    tile_area_m2 = (
+                        tile_width *
+                        tile_height *
+                        pixel_area_m2
+                    )
 
-            ndvi = vegetation.ndvi()
-            extractor.add_feature(
-                "NDVI",
-                ndvi
-            )
-            del ndvi
+                    target_segments = max(
+                        1,
+                        int(
+                            round(
+                                tile_area_m2 /
+                                region_area
+                            )
+                        )
+                    )
 
-            gndvi = vegetation.gndvi()
-            extractor.add_feature(
-                "GNDVI",
-                gndvi
-            )
-            del gndvi
+                    print(
+                        f"Tile Area          : "
+                        f"{tile_area_m2:,.2f} m²"
+                    )
 
-            ndre = vegetation.ndre()
-            extractor.add_feature(
-                "NDRE",
-                ndre
-            )
-            del ndre
+                    print(
+                        f"Target Region Area : "
+                        f"{region_area:.2f} m²"
+                    )
 
-            ci = vegetation.ci_red_edge()
-            extractor.add_feature(
-                "CI_RedEdge",
-                ci
-            )
-            del ci
+                    print(
+                        f"Target Superpixels : "
+                        f"{target_segments:,}"
+                    )
 
-            evenson = vegetation.evenson()
-            extractor.add_feature(
-                "EVENSON",
-                evenson
-            )
-            del evenson
+                    # -------------------------------------------------
+                    # LOAD TILE
+                    # -------------------------------------------------
 
-            # HSV FEATURES
+                    tile = loader.load_window(
+                        window
+                    )
 
-            print("Calculating HSV features...")
+                    # -------------------------------------------------
+                    # BAND DIAGNOSTICS
+                    # -------------------------------------------------
 
-            hsv = HSVFeatures(bands)
+                    self._print_band_diagnostics(
+                        tile
+                    )
 
-            hsv_features = hsv.calculate()
 
-            extractor.add_feature(
-                "Hue",
-                hsv_features["Hue"]
-            )
 
-            extractor.add_feature(
-                "Saturation",
-                hsv_features["Saturation"]
-            )
+                    # -------------------------------------------------
+                    # SLIC
+                    # -------------------------------------------------
 
-            extractor.add_feature(
-                "Value",
-                hsv_features["Value"]
-            )
+                    print(
+                        "\nGenerating superpixels..."
+                    )
 
-            del hsv_features
-            del hsv
+                    segmenter = (
+                        SuperpixelSegmenter(
+                            num_segments=
+                            target_segments,
+                            compactness=
+                            compactness,
+                            sigma=sigma
+                        )
+                    )
 
-            # SAVE TILE RESULTS
+                    labels = segmenter.run(
+                        tile
+                    )
 
-            tile_features = extractor.get_features()
+                    if labels is None:
 
-            print(
-                f"Extracted features for "
-                f"{len(tile_features)} regions."
-            )
+                        print(
+                            "Superpixel segmentation "
+                            "returned no labels. "
+                            "Skipping tile."
+                        )
 
-            # ADD TILE RESULTS TO MASTER RESULTS
+                        continue
 
-            all_region_features.update(
-                tile_features
-            )
+                    # -------------------------------------------------
+                    # VEGETATION INDICES
+                    # -------------------------------------------------
 
-            # RELEASE TILE MEMORY
+                    print(
+                        "Calculating vegetation indices..."
+                    )
 
-            del bands
-            del labels
-            del extractor
+                    vegetation = (
+                        VegetationIndices(
+                            tile
+                        )
+                    )
 
-        # PIPELINE COMPLETE
+                    ndvi = (
+                        vegetation.ndvi()
+                    )
 
-        print("\n=== Feature Pipeline Complete ===")
+                    gndvi = (
+                        vegetation.gndvi()
+                    )
+
+                    ndre = (
+                        vegetation.ndre()
+                    )
+
+                    ci_red_edge = (
+                        vegetation.ci_red_edge()
+                    )
+
+                    # -------------------------------------------------
+                    # DIAGNOSTICS
+                    # -------------------------------------------------
+
+                    self._print_feature_diagnostic(
+                        "NDVI",
+                        ndvi
+                    )
+
+                    self._print_feature_diagnostic(
+                        "GNDVI",
+                        gndvi
+                    )
+
+                    self._print_feature_diagnostic(
+                        "NDRE",
+                        ndre
+                    )
+
+                    self._print_feature_diagnostic(
+                        "CI_RedEdge",
+                        ci_red_edge
+                    )
+
+                    # -------------------------------------------------
+                    # HSV
+                    # -------------------------------------------------
+
+                    print(
+                        "Calculating HSV features..."
+                    )
+
+                    hsv = HSVFeatures(
+                        tile
+                    )
+
+                    hsv_features = (
+                        hsv.calculate()
+                    )
+
+                    # -------------------------------------------------
+                    # REGION FEATURE EXTRACTOR
+                    # -------------------------------------------------
+
+                    extractor = (
+                        RegionFeatureExtractor(
+                            labels=labels,
+                            pixel_area_m2=
+                            pixel_area_m2,
+                            tile_number=
+                            tile_number
+                        )
+                    )
+
+                    # -------------------------------------------------
+                    # ADD VEGETATION FEATURES
+                    # -------------------------------------------------
+
+                    extractor.add_feature(
+                        "NDVI",
+                        ndvi
+                    )
+
+                    extractor.add_feature(
+                        "GNDVI",
+                        gndvi
+                    )
+
+                    extractor.add_feature(
+                        "NDRE",
+                        ndre
+                    )
+
+                    extractor.add_feature(
+                        "CI_RedEdge",
+                        ci_red_edge
+                    )
+
+                    # -------------------------------------------------
+                    # ADD HSV FEATURES
+                    # -------------------------------------------------
+
+                    extractor.add_feature(
+                        "Hue",
+                        hsv_features[
+                            "Hue"
+                        ]
+                    )
+
+                    extractor.add_feature(
+                        "Saturation",
+                        hsv_features[
+                            "Saturation"
+                        ]
+                    )
+
+                    extractor.add_feature(
+                        "Value",
+                        hsv_features[
+                            "Value"
+                        ]
+                    )
+
+                    # -------------------------------------------------
+                    # EXTRACT REGION STATISTICS
+                    # -------------------------------------------------
+
+                    regions = (
+                        extractor.get_features()
+                    )
+
+                    print(
+                        f"Extracted features for "
+                        f"{len(regions):,} regions."
+                    )
+
+                    # -------------------------------------------------
+                    # STORE
+                    # -------------------------------------------------
+
+                    all_regions.update(
+                        regions
+                    )
+
+                    # -------------------------------------------------
+                    # RELEASE TILE MEMORY
+                    # -------------------------------------------------
+
+                    del tile
+                    del labels
+                    del ndvi
+                    del gndvi
+                    del ndre
+                    del ci_red_edge
+                    del hsv_features
+
+        # =====================================================
+        # COMPLETE
+        # =====================================================
+
+        print(
+            "\n=== Feature Pipeline Complete ==="
+        )
 
         print(
             f"Total regions extracted: "
-            f"{len(all_region_features):,}"
+            f"{len(all_regions):,}"
         )
 
-        return all_region_features
+        self.results = all_regions
 
-    # AREA CALCULATION
+        # -----------------------------------------------------
+        # SAMPLE RESULTS
+        # -----------------------------------------------------
 
-    def _calculate_total_area(self, metadata):
-
-        pixel_area = (
-            metadata["pixel_width"] *
-            metadata["pixel_height"]
+        self._print_sample_regions(
+            all_regions
         )
 
-        return (
-            metadata["width"] *
-            metadata["height"] *
-            pixel_area
-        )
+        return all_regions
 
-    # SUPERPIXEL CALCULATION
+    # =========================================================
+    # RASTER METADATA
+    # =========================================================
 
-    def _calculate_num_segments(
-        self,
-        total_area,
-        desired_region_area
+    @staticmethod
+    def _read_raster_metadata(
+        ortho_path
     ):
 
-        return max(
-            1,
-            round(
-                total_area /
-                desired_region_area
+        with rasterio.open(
+            ortho_path
+        ) as src:
+
+            return {
+                "width": src.width,
+                "height": src.height,
+                "count": src.count,
+
+                "pixel_width": abs(
+                    src.transform.a
+                ),
+
+                "pixel_height": abs(
+                    src.transform.e
+                ),
+
+                "dtype": src.dtypes,
+
+                "nodata": src.nodata,
+
+                "crs": src.crs,
+
+                "transform": src.transform
+            }
+
+    # =========================================================
+    # BAND DIAGNOSTICS
+    # =========================================================
+
+    @staticmethod
+    def _print_band_diagnostics(
+        bands
+    ):
+
+        print(
+            "\n RAW BAND CHECK"
+        )
+
+        print(
+            f"Shape: {bands.shape}"
+        )
+
+        names = [
+            "Blue",
+            "Green",
+            "Red",
+            "Red Edge",
+            "NIR"
+        ]
+
+        for i in range(
+            bands.shape[0]
+        ):
+
+            band = bands[i]
+
+            finite = np.isfinite(
+                band
+            )
+
+            if not np.any(
+                finite
+            ):
+
+                print(
+                    f"Band {i} "
+                    f"({names[i] if i < len(names) else 'Unknown'}): "
+                    f"NO FINITE VALUES"
+                )
+
+                continue
+
+            values = band[
+                finite
+            ]
+
+            print(
+                f"Band {i} "
+                f"({names[i] if i < len(names) else 'Unknown'}): "
+                f"min={np.min(values):.4f}, "
+                f"max={np.max(values):.4f}, "
+                f"mean={np.mean(values):.4f}, "
+                f"nonzero="
+                f"{np.count_nonzero(values):,}"
+            )
+
+    # =========================================================
+    # FEATURE DIAGNOSTICS
+    # =========================================================
+
+    @staticmethod
+    def _print_feature_diagnostic(
+        name,
+        feature
+    ):
+
+        finite = np.isfinite(
+            feature
+        )
+
+        finite_count = int(
+            np.count_nonzero(
+                finite
             )
         )
 
-    # DOCKER
+        nan_count = int(
+            np.count_nonzero(
+                ~finite
+            )
+        )
 
-    def ensure_docker_running(self):
+        print(
+            f"{name} CHECK"
+        )
 
-        if self.docker.docker_running():
+        if finite_count == 0:
+
+            print(
+                f"{name} contains "
+                f"NO finite values."
+            )
 
             return
 
-        self.docker.start_docker()
+        values = feature[
+            finite
+        ]
 
-        print("Waiting for Docker...")
+        print(
+            f"{name} min:  "
+            f"{np.min(values)}"
+        )
 
-        while not self.docker.docker_running():
+        print(
+            f"{name} max:  "
+            f"{np.max(values)}"
+        )
 
-            time.sleep(10)
+        print(
+            f"{name} mean: "
+            f"{np.mean(values)}"
+        )
 
+        print(
+            f"{name} finite: "
+            f"{finite_count:,}"
+        )
+
+        print(
+            f"{name} NaN: "
+            f"{nan_count:,}"
+        )
+
+    # =========================================================
+    # SAMPLE RESULTS
+    # =========================================================
+
+    @staticmethod
+    def _print_sample_regions(
+        regions,
+        count=5
+    ):
+
+        if not regions:
+
+            print(
+                "\nNo regions were extracted."
+            )
+
+            return
+
+        print(
+            "\n=== Sample Region Features ==="
+        )
+
+        sample_items = list(
+            regions.items()
+        )[:count]
+
+        for region_id, features in (
+            sample_items
+        ):
+
+            print(
+                f"\nRegion {region_id}"
+            )
+
+            for name, value in (
+                features.items()
+            ):
+
+                if isinstance(
+                    value,
+                    float
+                ):
+
+                    if np.isnan(
+                        value
+                    ):
+
+                        print(
+                            f"  {name}: NaN"
+                        )
+
+                    else:
+
+                        print(
+                            f"  {name}: "
+                            f"{value:.6f}"
+                        )
+
+                else:
+
+                    print(
+                        f"  {name}: "
+                        f"{value}"
+                    )
