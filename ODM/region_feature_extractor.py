@@ -8,9 +8,12 @@ For every region this class calculates:
     - Pixel area
     - Physical area in square meters
     - Mean
+    - Median
     - Standard deviation
     - Minimum
     - Maximum
+    - 10th Percentile (p10)
+    - 90th Percentile (p90)
 
 for every supplied feature raster.
 
@@ -274,6 +277,10 @@ class RegionFeatureExtractor:
                     ] = np.nan
 
                     region[
+                        f"{name}_median"
+                    ] = np.nan
+
+                    region[
                         f"{name}_std"
                     ] = np.nan
 
@@ -283,6 +290,14 @@ class RegionFeatureExtractor:
 
                     region[
                         f"{name}_max"
+                    ] = np.nan
+
+                    region[
+                        f"{name}_p10"
+                    ] = np.nan
+
+                    region[
+                        f"{name}_p90"
                     ] = np.nan
 
                     continue
@@ -295,6 +310,12 @@ class RegionFeatureExtractor:
                     f"{name}_mean"
                 ] = float(
                     np.mean(values)
+                )
+
+                region[
+                    f"{name}_median"
+                ] = float(
+                    np.median(values)
                 )
 
                 region[
@@ -313,6 +334,18 @@ class RegionFeatureExtractor:
                     f"{name}_max"
                 ] = float(
                     np.max(values)
+                )
+
+                region[
+                    f"{name}_p10"
+                ] = float(
+                    np.percentile(values, 10)
+                )
+
+                region[
+                    f"{name}_p90"
+                ] = float(
+                    np.percentile(values, 90)
                 )
 
             # ----------------------------------------------------

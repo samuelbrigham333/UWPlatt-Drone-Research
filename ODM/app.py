@@ -821,6 +821,7 @@ class ODMApplication:
                         tile
                     )
 
+                                        
                     ndvi = vegetation.ndvi()
 
                     print(
@@ -847,6 +848,14 @@ class ODMApplication:
                         "      CI-RE     ✓"
                     )
 
+                    evenson = (
+                        vegetation.evenson()
+                    )
+
+                    print(
+                        "   Evenson     "
+                    )
+
                     # -----------------------------------------
                     # FEATURE DIAGNOSTICS
                     # -----------------------------------------
@@ -871,6 +880,11 @@ class ODMApplication:
                         ci_red_edge
                     )
 
+                    self._print_feature_diagnostic(
+                        "Evenson",
+                        evenson
+                    )
+
                     # -----------------------------------------
                     # REGION FEATURE EXTRACTION
                     # -----------------------------------------
@@ -886,6 +900,26 @@ class ODMApplication:
                             pixel_area_m2=pixel_area_m2,
                             tile_number=tile_number
                         )
+                    )
+
+                    extractor.add_feature(
+                        "Red",
+                        tile[0]
+                    )
+
+                    extractor.add_feature(
+                        "Green",
+                        tile[1]
+                    )
+
+                    extractor.add_feature(
+                        "NIR",
+                        tile[2]
+                    )
+
+                    extractor.add_feature(
+                        "Red Edge",
+                        tile[3]
                     )
 
                     extractor.add_feature(
@@ -908,9 +942,16 @@ class ODMApplication:
                         ci_red_edge
                     )
 
+                    extractor.add_feature(
+                        "Evenson",
+                        evenson
+                    )
+
                     regions = (
                         extractor.get_features()
                     )
+
+                
 
                     print(
                         f"      Regions extracted: "
@@ -935,6 +976,7 @@ class ODMApplication:
                     del gndvi
                     del ndre
                     del ci_red_edge
+                    del evenson
                     del vegetation
                     del extractor
                     del segmenter
