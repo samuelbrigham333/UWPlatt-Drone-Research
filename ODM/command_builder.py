@@ -33,7 +33,7 @@ class ODMCommandBuilder:
             "-v",
             f"{self.image_path}:/datasets/{self.project_name}/images",
 
-            "opendronemap/odm",
+            "opendronemap/odm:3.6.1",
 
             "--project-path",
             "/datasets",
