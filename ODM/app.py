@@ -19,9 +19,12 @@ import csv
 import time
 
 import numpy as np
+from pandas import options
+from pandas import options
 import rasterio
 from rasterio.windows import Window
 
+from ODM.RGBOrthoBuilder import RGBOrthoBuilder
 from ODM.ui import UserInterface
 from ODM.docker_manager import DockerManager
 from ODM.command_builder import ODMCommandBuilder
@@ -166,6 +169,9 @@ class ODMApplication:
             "pipeline_options"
         ]
 
+#NOTE   
+#Most code from ODM processing for logic and commands should be able to be reused for RGB ORTHO
+#Do not write any new code before asking "did I already do this???"
         # =====================================================
         # IMAGE VALIDATION
         # =====================================================
@@ -264,6 +270,31 @@ class ODMApplication:
             f"Orthomosaic --> "
             f"{ortho_path}"
         )
+
+    #START OF RGB ORTHO PIPELINE
+
+        rgb_builder = RGBOrthoBuilder(
+            image_path,
+            output_path,
+            project_name,
+            options
+        )
+
+        rgb_ortho_path = rgb_builder.build()
+
+        if rgb_ortho_path is None:
+            raise RuntimeError(
+                "\nRGB Ortho processing failed. "
+            )
+    #below runs if all is well  
+        print(
+                "\n=== RGB Ortho Complete ==="
+             )
+
+        print(
+                f"RGB Ortho --> "
+                f"{rgb_ortho_path}"
+             )
 
         return ortho_path
 
