@@ -1,102 +1,34 @@
 from pathlib import Path
-
-from ODM.command_builder import ODMCommandBuilder
-from ODM.runner import ODMRunner
-
-#WE DO NOT WANT TO COPY ALL THE IMAGES TO ANOTHER FILE
-#THIS TAKES UP AN UNGODLY AMOUNT OF STORAGE AND IS UNECCESSARY.
-
+import shutil
 
 class RGBOrthoBuilder:
 
-    def __init__(self, 
-                 image_directory, 
-                 output_directory, 
-                 project_name, 
-                 pipeline_options
-                 ):
-        
-        self.image_directory = Path(image_directory)
-        self.output_directory = Path(output_directory)
-        self.project_name = project_name
-        self.pipeline_options = pipeline_options
+    def __init__(self, image_path, rgb_path):
+        self.image_path = Path(image_path)
+        self.rgb_path = Path(rgb_path)
+        self.rgb_images_path = self.rgb_path / "images"
 
-        self.output_directory.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
+    def filter_rgb_images(self):
+        rgb_images = [
+            image for image in self.image_path.iterdir()
+            if image.is_file() and image.suffix.lower() in {".jpg", ".jpeg"}
 
-        self.project_directory = self.output_directory / self.project_name
-       #dont need self.proejct_images likely keep for now delete later
-        self.project_images = self.project_directory / "images"
+        ]
 
-        
-
-        self.project_directory.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
+        return rgb_images
 
 
+    def create_rgb_folder(self):
+        #creates location for filtered out rgb images
+        self.rgb_images_path.mkdir(parents=True, exist_ok=True)
 
+    def copy_rgb_images(self):
+        rgb_images = self.filter_rgb_images
 
-    def get_rgb_images(self):
-        return list(self.image_directory.glob("*_D.JPG"))
+        for image in rgb_images:
+            destination = self.rgb_images_path / image.name
+            shutil.copy2(image, destination)
 
-    def validate_images(self):
-        images = self.get_rgb_images()
-
-        if not images:
-            raise FileNotFoundError(f"No RGB images found in {self.image_directory}")
-
-        return images
-
-    def build(self):
-            images = self.validate_images()
-            print(
-                f"RGB image directory --> "
-                f"{self.image_directory}"
-            )
-
-            
-
-            print(
-                f"RGB project directory --> "
-                f"{self.project_directory}"
-            )
-
-            print(
-                f"RGB pipeline options --> "
-                f"{self.pipeline_options}"
-            )
-
-            rgb_command_builder = ODMCommandBuilder(
-                self.image_directory,
-                self.output_directory,
-                self.project_name,
-                self.pipeline_options,
-            )
-
-
-            rgb_command = (rgb_command_builder.build_command())
-
-            print("\nRGB COMMAND LIST:")
-            print(rgb_command)
-
-            print(
-                 "\n=== RGB Ortho Command ===\n"
-            )
-            print(
-                 " ".join(
-                      str(arg) for arg in rgb_command
-                 )
-            )
-
-            rgb_runner = ODMRunner(
-                rgb_command
-            )
-
-            rgb_runner.run()
-
-#taking rgb ortho and building it into superpixel generation
-#pipeline now runs superpixel generation, then rgb ortho generation then superpixel overlay generation on the rgb ortho
+    def build_rgb_dataset(self):
+        self.create_rgb_folder
+        self.copy_rgb_images

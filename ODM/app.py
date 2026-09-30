@@ -365,6 +365,20 @@ class ODMApplication:
                 project_path /
                 "odm_orthophoto" /
                 "odm_orthophoto.original.tif"
+            ),
+
+            #Double JPG Ortho Test - Overall Less Quality Make it work 
+            (
+                project_path /
+                "odm_orthophoto" /
+                "odm_orthophoto.original.jpg"
+            ),
+
+            #JPG Test
+            (
+                project_path /
+                "odm_orthophoto" /
+                "odm_orthophoto.rgb.tif"
             )
         ]
 
@@ -393,6 +407,27 @@ class ODMApplication:
 
             return tif_files[0]
 
+        #JPG RGB Testing
+        jpg_files = list(
+                    project_path.rglob(
+                        "*.jpg"
+                    )
+                )
+        
+        if jpg_files:
+        
+            for jpg in jpg_files:
+        
+                if (
+                    "orthophoto"
+                    in jpg.name.lower()
+                    ):
+        
+                     return tif
+        
+            return jpg_files[0]
+
+        
         raise FileNotFoundError(
             "\nODM completed, but an "
             "orthomosaic could not be found.\n\n"
@@ -1419,3 +1454,26 @@ class ODMApplication:
                         f"{value}"
                     )
                     #progress written in
+
+    def run_rgb_orth(self, image_path, rgb_path, output_path, project_name, options):
+        #1 build the rgb only dataset
+
+        rgb_builder = RGBOrthoBuilder(
+            image_path = image_path,
+            rgb_path = rgb_path
+        )
+
+        rgb_builder.build_rgb_dataset()
+
+        #2. build the ODM command using the RGB images
+        command_builder = ODMCommandBuilder(
+            image_path = rgb_builder.rgb_images_path
+            output_path=output_path,
+            project_name=project_name,
+            options=options
+        )
+
+        command = command_builder.build_command()
+
+        #3 Run the ODM command
+        self.docker_runner.run(command)
