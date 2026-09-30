@@ -1,93 +1,437 @@
-# Drone_Work
+Drone Image Processing Pipeline
 
+Python application for processing drone imagery with OpenDroneMap (ODM), extracting multispectral features, generating superpixels, and preparing data for future machine-learning workflows.
 
+Overview
 
-## Getting started
+This project provides a command-line workflow around OpenDroneMap running in Docker. The application is designed to be modular so additional image-processing and machine-learning functionality can be added without rebuilding the core ODM workflow.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+The current processing flow is:
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+Validate Docker and input paths.
 
-## Add your files
+Collect ODM processing options.
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+Run OpenDroneMap in Docker.
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/samuelbrigham333/drone_work.git
-git branch -M main
-git push -uf origin main
-```
+Locate the generated multispectral orthomosaic.
 
-## Integrate with your tools
+Tile the orthomosaic to reduce memory usage.
 
-* [Set up project integrations](https://gitlab.com/samuelbrigham333/drone_work/-/settings/integrations)
+Segment each tile with SLIC superpixels.
 
-## Collaborate with your team
+Calculate vegetation indices.
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+Extract statistics for each superpixel.
 
-## Test and Deploy
+Export feature data for later analysis and machine learning.
 
-Use the built-in continuous integration in GitLab.
+Develop an RGB orthomosaic workflow using the original RGB _D.JPG images.
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+Project Structure
 
-***
+Drone_Stuff/
+│
+├── Main.py
+│
+└── ODM/
+    ├── app.py
+    ├── command_builder.py
+    ├── docker_manager.py
+    ├── runner.py
+    ├── ui.py
+    ├── validate_images.py
+    │
+    ├── RGBOrthoBuilder.py
+    │
+    ├── superpixel_segmenter.py
+    ├── region_feature_extractor.py
+    ├── superpixel_dataset_exporter.py
+    │
+    └── raster/
+        ├── raster_loader.py
+        └── vegetation_indices.py
 
-# Editing this README
+Main Application
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+Main.py is the application entry point:
 
-## Suggestions for a good README
+from ODM.app import ODMApplication
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+if __name__ == "__main__":
+    app = ODMApplication()
+    app.execute()
 
-## Name
-Choose a self-explaining name for your project.
+The main application is responsible for coordinating the different parts of the processing pipeline.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+Processing Workflow
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+1. ODM Processing
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+The user selects:
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+Image dataset directory
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+Output directory
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+Project name
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Split size
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+Split overlap
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+Point-cloud quality
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+The application constructs the Docker command through ODMCommandBuilder and executes it through ODMRunner.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+ODM is currently configured around:
 
-## License
-For open source projects, say how it is licensed.
+opendronemap/odm:3.6.1
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+The project uses ODM's split processing to help manage large drone datasets.
+
+2. Multispectral Orthomosaic
+
+The multispectral processing produces an orthomosaic containing the expected bands:
+
+Band
+
+Meaning
+
+Band 1
+
+Red
+
+Band 2
+
+Green
+
+Band 3
+
+NIR
+
+Band 4
+
+Red Edge
+
+Band 5
+
+Alpha / mask
+
+The Alpha band is used for raster/mask information but is not intended to be included in feature statistics.
+
+3. Vegetation Indices
+
+The VegetationIndices class calculates vegetation-related raster features including:
+
+NDVI
+
+GNDVI
+
+NDRE
+
+Evenson
+
+CI Red Edge
+
+The indices operate on the multispectral bands from the orthomosaic.
+
+4. Tiling
+
+Large orthomosaics are processed in tiles rather than loading the entire raster into memory at once.
+
+The default tile size is:
+
+2048 × 2048 pixels
+
+This helps control memory usage when processing large orthomosaics.
+
+5. Superpixel Segmentation
+
+SLIC is used to divide each tile into visually/spectrally similar regions.
+
+The user can configure:
+
+Desired region area in square meters
+
+SLIC compactness
+
+Sigma
+
+Tile size
+
+The desired region area is converted into an approximate number of pixels based on the raster's pixel area.
+
+6. Region Feature Extraction
+
+RegionFeatureExtractor calculates statistics for every superpixel.
+
+Current measurements include:
+
+Pixel count
+
+Area in square meters
+
+Mean
+
+Median
+
+Standard deviation
+
+Minimum
+
+Maximum
+
+10th percentile
+
+90th percentile
+
+These statistics can be calculated for the vegetation-index rasters and other feature rasters supplied to the extractor.
+
+Each region receives a unique identifier such as:
+
+T1_R42
+
+where:
+
+T1 identifies the tile
+
+R42 identifies the region within that tile
+
+RGB Orthomosaic Development
+
+The project is also being extended to generate an RGB orthomosaic from the original RGB drone photographs.
+
+The original dataset contains RGB and multispectral imagery together. RGB photographs use the _D.JPG naming pattern, while multispectral images use names such as:
+
+_MS_G
+_MS_NIR
+_MS_R
+_MS_RE
+
+The RGB workflow is therefore intended to:
+
+Use the same full-sized source dataset.
+
+Identify the _D.JPG RGB images.
+
+Avoid copying the original image dataset.
+
+Reuse the existing ODM command-building and Docker-running infrastructure.
+
+Produce an RGB orthomosaic that can later be used as the visual source for superpixel images.
+
+The intended architecture is:
+
+Original DJI Dataset
+        │
+        ├── Multispectral imagery
+        │        │
+        │        ▼
+        │   ODM multispectral
+        │        │
+        │        ▼
+        │   Multispectral orthomosaic
+        │        │
+        │        ▼
+        │   SLIC / Features
+        │
+        └── *_D.JPG RGB imagery
+                 │
+                 ▼
+          RGB ODM processing
+                 │
+                 ▼
+           RGB orthomosaic
+                 │
+                 ▼
+        Superpixel visualization
+
+RGBOrthoBuilder is intentionally being kept thin. It is meant to reuse existing classes such as ODMCommandBuilder and ODMRunner rather than creating a second independent ODM pipeline.
+
+Planned Superpixel Dataset
+
+The eventual machine-learning dataset is intended to contain both tabular features and RGB imagery.
+
+A planned structure is:
+
+dataset/
+├── images/
+│   ├── T1_R42.png
+│   ├── T1_R43.png
+│   └── ...
+│
+├── labels.csv
+└── metadata.csv
+
+Example labeling information:
+
+region_id,label,confidence,notes
+T1_R0,soybean,high,
+T1_R1,weed,high,
+T1_R2,soil,medium,partially obscured
+T1_R3,unknown,low,can't identify
+
+The intended workflow is:
+
+RGB Orthomosaic
+       │
+       ▼
+Superpixel Map
+       │
+       ├── Full-color image with region outlines
+       │
+       └── Individual RGB image for each region
+                    │
+                    ▼
+               Human labeling
+                    │
+                    ▼
+              ML dataset
+
+The project may eventually support both:
+
+Tabular models using spectral and geometric features
+
+Image-based models using RGB superpixel images
+
+Multimodal models combining both types of information
+
+Memory and Performance Considerations
+
+Large drone orthomosaics can require substantial memory. The project therefore uses several strategies to limit memory requirements:
+
+ODM split processing
+
+Raster tiling
+
+Processing one tile at a time
+
+Explicit cleanup of large NumPy arrays where appropriate
+
+Avoiding unnecessary copies of the original image dataset
+
+Extracting regional statistics instead of keeping every intermediate result indefinitely
+
+The application is intended to work with large drone datasets on systems with limited RAM.
+
+Requirements
+
+The project currently relies on:
+
+Python
+
+Docker Desktop
+
+OpenDroneMap
+
+NumPy
+
+Rasterio
+
+scikit-image
+
+The exact Python package requirements should be maintained separately in the project's environment/dependency configuration as the project develops.
+
+Running the Application
+
+From the project directory, activate the virtual environment and run:
+
+.\.venv\Scripts\python.exe Main.py
+
+The main menu provides:
+
+=== DRONE PROCESSING ===
+1. Run ODM Processing
+2. Analyze Existing Ortho
+3. Exit
+
+Docker must be available before ODM processing can run.
+
+Development Principles
+
+The project is being developed around a few design principles:
+
+Reuse Existing Processing
+
+New functionality should reuse existing ODM, Docker, validation, raster, and feature-extraction components whenever possible.
+
+Avoid Duplicate Pipelines
+
+RGB processing should not become an entirely separate implementation of the ODM workflow. RGB-specific behavior should be added around the existing pipeline where practical.
+
+Avoid Copying Large Datasets
+
+The original drone imagery should remain in its existing location. The application should avoid making unnecessary copies of large image datasets.
+
+Modular Classes
+
+Processing responsibilities are separated into classes so individual components can be expanded or replaced without rewriting the entire application.
+
+User-Configurable Processing
+
+Important processing parameters such as split size, overlap, superpixel area, compactness, sigma, and tile size should remain configurable rather than being permanently hard-coded.
+
+Current Development Status
+
+Working / established
+
+ODM Docker processing
+
+ODM split/overlap configuration
+
+Orthomosaic discovery
+
+Multispectral band validation
+
+Raster loading
+
+Vegetation-index calculation
+
+Tiled processing
+
+SLIC superpixel segmentation
+
+Region feature extraction
+
+Region identifiers
+
+RGB image identification using _D.JPG
+
+In development
+
+RGB orthomosaic generation
+
+RGB integration with the existing ODM pipeline
+
+RGB superpixel visualization
+
+Individual superpixel RGB image export
+
+Human labeling workflow
+
+Dataset export for machine learning
+
+Future Goals
+
+The longer-term goal is to create a reusable drone-image analysis pipeline capable of:
+
+Processing large drone datasets.
+
+Generating multispectral orthomosaics.
+
+Generating RGB orthomosaics.
+
+Segmenting imagery into meaningful regions.
+
+Extracting spectral, vegetation, and geometric features.
+
+Exporting labeled RGB samples.
+
+Building machine-learning datasets.
+
+Supporting future classification models such as Random Forest and image-based neural networks.
+
+Eventually combining RGB imagery with multispectral/tabular features in a multimodal model.
+
+GENERATED BY ChatGPT model GPT-6 Astra
