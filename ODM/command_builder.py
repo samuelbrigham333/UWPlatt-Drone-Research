@@ -11,9 +11,11 @@ class ODMCommandBuilder:
                  image_path,
                  output_path,
                  project_name,
-                 options
+                 options,
+                 image_directory = None,
                  ):
         self.image_path = image_path
+        self.image_directory = image_directory
         self.output_path = output_path
         self.project_name = project_name
         self.options = options
@@ -31,7 +33,7 @@ class ODMCommandBuilder:
 
             #OG Images
             "-v",
-            f"{self.image_path}:/datasets/{self.project_name}/images",
+            f"{self.image_directory or self.image_path}:/datasets/{self.project_name}/images",
 
             "opendronemap/odm:3.6.1",
 

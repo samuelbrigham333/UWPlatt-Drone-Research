@@ -201,9 +201,15 @@ class ODMApplication:
             "\nBuilding ODM command..."
         )
 
-        command_builder = ODMCommandBuilder(
+
+        
+
+
+        #MultiSpectral ODM Command Builder
+        command_builder = ODMCommnadBuilder(
             image_path,
             output_path,
+            project_name,
             project_name,
             options
         )
@@ -211,6 +217,38 @@ class ODMApplication:
         command = (
             command_builder.build_command()
         )
+
+        rgb_runner.run()
+
+        print("\Multispectral ortho built successfully!")
+        print("Building RGB Ortho command...")
+
+        #BUILD RGB VIEW
+        rgb_directory = self._create_rgb_view(
+                    image_path,
+                    output_path,
+                    project_name
+                )
+        
+                #BUILD RGB ODM COMMAND
+        rgb_command_builder = ODMCommandBuilder(
+                    image_path,
+                    output_path,
+                    f"{project_name}_rgb",
+                    options,
+                    image_directory=rgb_directory
+                )
+        
+        rgb_command = rgb_command_builder.build_command()
+        
+                #RUN RGB ODM 
+        rgb_runner = ODMRunner(
+                    rgb_command
+                )
+        
+        
+
+        print("RGB Ortho built successfully!")
 
         # =====================================================
         # DISPLAY COMMAND
@@ -270,33 +308,6 @@ class ODMApplication:
             f"Orthomosaic --> "
             f"{ortho_path}"
         )
-
-    #START OF RGB ORTHO PIPELINE
-
-        rgb_builder = RGBOrthoBuilder(
-            image_path,
-            output_path,
-            project_name,
-            options
-        )
-
-        rgb_ortho_path = rgb_builder.build()
-
-        if rgb_ortho_path is None:
-            raise RuntimeError(
-                "\nRGB Ortho processing failed. "
-            )
-    #below runs if all is well  
-        print(
-                "\n=== RGB Ortho Complete ==="
-             )
-
-        print(
-                f"RGB Ortho --> "
-                f"{rgb_ortho_path}"
-             )
-
-        return ortho_path
 
     # =========================================================
     # DOCKER MANAGEMENT
@@ -1455,25 +1466,38 @@ class ODMApplication:
                     )
                     #progress written in
 
-    def run_rgb_orth(self, image_path, rgb_path, output_path, project_name, options):
-        #1 build the rgb only dataset
+    def _get_rgb_images(self, image_path):
+        #Searches the dataset for DJI RGB images
+        rgb_images = list(image_path.glob("*_D.JPG"))
 
-        rgb_builder = RGBOrthoBuilder(
-            image_path = image_path,
-            rgb_path = rgb_path
+        if not rgb_images:
+            raise FileNotFoundError(
+                f"No RGB images found in {image_path}"
         )
 
-        rgb_builder.build_rgb_dataset()
+        return rgb_images
+    
 
-        #2. build the ODM command using the RGB images
-        command_builder = ODMCommandBuilder(
-            image_path = rgb_builder.rgb_images_path
-            output_path=output_path,
-            project_name=project_name,
-            options=options
+    def _create_rgb_view(self, image_path, output_path, project_name):
+        rgb_images = self._get_rgb_images(image_path)
+
+        #setting up and creating the directory for the rgb images 
+        rgb_directory = (
+            output_path
+            / ".rgb_temp"
+            / project_name
+            / "images"
         )
 
-        command = command_builder.build_command()
+        rgb_directory.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
-        #3 Run the ODM command
-        self.docker_runner.run(command)
+        for image in rgb_images:
+            target = rgb_directory / image.name
+
+            if not target.exists():
+                target.hardlink_to(image) #points to the underlying file
+
+        return rgb_directory 
