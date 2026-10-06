@@ -60,6 +60,38 @@ class UserInterface:
             "pipeline_options": pipeline_options,
         }
 
+
+    # ==========================================================
+    # RGB ORTHO WORKFLOW
+    # ==========================================================
+
+    @staticmethod
+    def get_RGB_configuration(self):
+
+        print("\n=== RGB Ortho Configuration ===")
+
+        image_path = UserInterface._get_existing_directory(
+            "RGB Image folder"
+        )
+
+        output_path = UserInterface._get_output_directory(
+            "Output folder"
+        )
+
+        project_name = UserInterface._get_project_name(
+            output_path
+        )
+
+        pipeline_options = UserInterface.get_pipeline_options()
+
+        return {
+            "image_path": image_path,
+            "output_path": output_path,
+            "project_name": project_name,
+            "pipeline_options": pipeline_options,
+        }
+
+    
     # ==========================================================
     # FEATURE EXTRACTION
     # ==========================================================

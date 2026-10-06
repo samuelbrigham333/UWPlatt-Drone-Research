@@ -19,9 +19,12 @@ import csv
 import time
 
 import numpy as np
+from pandas import options
+from pandas import options
 import rasterio
 from rasterio.windows import Window
 
+from ODM.RGBOrthoBuilder import RGBOrthoBuilder
 from ODM.ui import UserInterface
 from ODM.docker_manager import DockerManager
 from ODM.command_builder import ODMCommandBuilder
@@ -166,6 +169,9 @@ class ODMApplication:
             "pipeline_options"
         ]
 
+#NOTE   
+#Most code from ODM processing for logic and commands should be able to be reused for RGB ORTHO
+#Do not write any new code before asking "did I already do this???"
         # =====================================================
         # IMAGE VALIDATION
         # =====================================================
@@ -195,9 +201,15 @@ class ODMApplication:
             "\nBuilding ODM command..."
         )
 
-        command_builder = ODMCommandBuilder(
+
+        
+
+
+        #MultiSpectral ODM Command Builder
+        command_builder = ODMCommnadBuilder(
             image_path,
             output_path,
+            project_name,
             project_name,
             options
         )
@@ -205,6 +217,38 @@ class ODMApplication:
         command = (
             command_builder.build_command()
         )
+
+        rgb_runner.run()
+
+        print("\Multispectral ortho built successfully!")
+        print("Building RGB Ortho command...")
+
+        #BUILD RGB VIEW
+        rgb_directory = self._create_rgb_view(
+                    image_path,
+                    output_path,
+                    project_name
+                )
+        
+                #BUILD RGB ODM COMMAND
+        rgb_command_builder = ODMCommandBuilder(
+                    image_path,
+                    output_path,
+                    f"{project_name}_rgb",
+                    options,
+                    image_directory=rgb_directory
+                )
+        
+        rgb_command = rgb_command_builder.build_command()
+        
+                #RUN RGB ODM 
+        rgb_runner = ODMRunner(
+                    rgb_command
+                )
+        
+        
+
+        print("RGB Ortho built successfully!")
 
         # =====================================================
         # DISPLAY COMMAND
@@ -264,8 +308,6 @@ class ODMApplication:
             f"Orthomosaic --> "
             f"{ortho_path}"
         )
-
-        return ortho_path
 
     # =========================================================
     # DOCKER MANAGEMENT
@@ -334,6 +376,20 @@ class ODMApplication:
                 project_path /
                 "odm_orthophoto" /
                 "odm_orthophoto.original.tif"
+            ),
+
+            #Double JPG Ortho Test - Overall Less Quality Make it work 
+            (
+                project_path /
+                "odm_orthophoto" /
+                "odm_orthophoto.original.jpg"
+            ),
+
+            #JPG Test
+            (
+                project_path /
+                "odm_orthophoto" /
+                "odm_orthophoto.rgb.tif"
             )
         ]
 
@@ -362,6 +418,27 @@ class ODMApplication:
 
             return tif_files[0]
 
+        #JPG RGB Testing
+        jpg_files = list(
+                    project_path.rglob(
+                        "*.jpg"
+                    )
+                )
+        
+        if jpg_files:
+        
+            for jpg in jpg_files:
+        
+                if (
+                    "orthophoto"
+                    in jpg.name.lower()
+                    ):
+        
+                     return tif
+        
+            return jpg_files[0]
+
+        
         raise FileNotFoundError(
             "\nODM completed, but an "
             "orthomosaic could not be found.\n\n"
@@ -1388,3 +1465,39 @@ class ODMApplication:
                         f"{value}"
                     )
                     #progress written in
+
+    def _get_rgb_images(self, image_path):
+        #Searches the dataset for DJI RGB images
+        rgb_images = list(image_path.glob("*_D.JPG"))
+
+        if not rgb_images:
+            raise FileNotFoundError(
+                f"No RGB images found in {image_path}"
+        )
+
+        return rgb_images
+    
+
+    def _create_rgb_view(self, image_path, output_path, project_name):
+        rgb_images = self._get_rgb_images(image_path)
+
+        #setting up and creating the directory for the rgb images 
+        rgb_directory = (
+            output_path
+            / ".rgb_temp"
+            / project_name
+            / "images"
+        )
+
+        rgb_directory.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        for image in rgb_images:
+            target = rgb_directory / image.name
+
+            if not target.exists():
+                target.hardlink_to(image) #points to the underlying file
+
+        return rgb_directory 
