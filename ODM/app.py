@@ -206,10 +206,9 @@ class ODMApplication:
 
 
         #MultiSpectral ODM Command Builder
-        command_builder = ODMCommnadBuilder(
+        command_builder = ODMCommandBuilder(
             image_path,
             output_path,
-            project_name,
             project_name,
             options
         )
@@ -218,34 +217,14 @@ class ODMApplication:
             command_builder.build_command()
         )
 
-        rgb_runner.run()
+        
 
         print("\Multispectral ortho built successfully!")
         print("Building RGB Ortho command...")
 
-        #BUILD RGB VIEW
-        rgb_directory = self._create_rgb_view(
-                    image_path,
-                    output_path,
-                    project_name
-                )
         
-                #BUILD RGB ODM COMMAND
-        rgb_command_builder = ODMCommandBuilder(
-                    image_path,
-                    output_path,
-                    f"{project_name}_rgb",
-                    options,
-                    image_directory=rgb_directory
-                )
         
-        rgb_command = rgb_command_builder.build_command()
-        
-                #RUN RGB ODM 
-        rgb_runner = ODMRunner(
-                    rgb_command
-                )
-        
+                
         
 
         print("RGB Ortho built successfully!")
@@ -280,6 +259,34 @@ class ODMApplication:
         )
 
         runner.run()
+
+        # BUILD RGB ORTHOMOSAIC
+
+        #BUILD RGB VIEW
+        rgb_directory = self._create_rgb_view(
+            image_path,
+            output_path,
+            project_name
+                    )
+
+        #BUILD RGB ODM COMMAND
+        rgb_command_builder = ODMCommandBuilder(
+                image_path,
+                output_path,
+                f"{project_name}_rgb",
+                options,
+                image_directory=rgb_directory
+                        )
+                
+        rgb_command = rgb_command_builder.build_command()
+                
+        #RUN RGB ODM 
+        rgb_runner = ODMRunner(
+                rgb_command
+                        )
+
+        rgb_runner.run()
+                
 
         # =====================================================
         # LOCATE PROJECT
