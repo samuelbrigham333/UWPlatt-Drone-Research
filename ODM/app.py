@@ -424,6 +424,8 @@ class ODMApplication:
 
         tile_number = 0
 
+        overlay_writer = None
+
         # =====================================================
         # OPEN ORTHOMOSAIC
         # =====================================================
