@@ -485,12 +485,6 @@ class ODMApplication:
                     tile = loader.load_window(window)
 
                     # -----------------------------------------
-                    # BAND DIAGNOSTICS
-                    # -----------------------------------------
-
-                    self._print_band_diagnostics(tile)
-
-                    # -----------------------------------------
                     # SLIC
                     # -----------------------------------------
 
