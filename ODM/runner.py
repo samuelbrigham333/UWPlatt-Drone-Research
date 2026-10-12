@@ -3,11 +3,11 @@ ODM execution module
 
 Execute the ODM Docker command and reports whether processing completed successfully
 """
+
 import subprocess
 
 
 class ODMRunner:
-
     def __init__(self, command):
 
         self.command = command

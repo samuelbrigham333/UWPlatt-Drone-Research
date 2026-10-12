@@ -9,4 +9,3 @@ from ODM.app import ODMApplication
 if __name__ == "__main__":
     app = ODMApplication()
     app.execute()
-

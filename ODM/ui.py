@@ -8,7 +8,6 @@ from pathlib import Path
 
 
 class UserInterface:
-
     # ==========================================================
     # MAIN MENU
     # ==========================================================
@@ -22,7 +21,6 @@ class UserInterface:
         print("3. Exit")
 
         while True:
-
             choice = input("\nSelection --> ").strip()
 
             if choice in ("1", "2", "3"):
@@ -39,17 +37,11 @@ class UserInterface:
 
         print("\n=== ODM Configuration ===")
 
-        image_path = UserInterface._get_existing_directory(
-            "Image folder"
-        )
+        image_path = UserInterface._get_existing_directory("Image folder")
 
-        output_path = UserInterface._get_output_directory(
-            "Output folder"
-        )
+        output_path = UserInterface._get_output_directory("Output folder")
 
-        project_name = UserInterface._get_project_name(
-            output_path
-        )
+        project_name = UserInterface._get_project_name(output_path)
 
         pipeline_options = UserInterface.get_pipeline_options()
 
@@ -59,7 +51,6 @@ class UserInterface:
             "project_name": project_name,
             "pipeline_options": pipeline_options,
         }
-
 
     # ==========================================================
     # RGB ORTHO WORKFLOW
@@ -70,17 +61,11 @@ class UserInterface:
 
         print("\n=== RGB Ortho Configuration ===")
 
-        image_path = UserInterface._get_existing_directory(
-            "RGB Image folder"
-        )
+        image_path = UserInterface._get_existing_directory("RGB Image folder")
 
-        output_path = UserInterface._get_output_directory(
-            "Output folder"
-        )
+        output_path = UserInterface._get_output_directory("Output folder")
 
-        project_name = UserInterface._get_project_name(
-            output_path
-        )
+        project_name = UserInterface._get_project_name(output_path)
 
         pipeline_options = UserInterface.get_pipeline_options()
 
@@ -91,7 +76,6 @@ class UserInterface:
             "pipeline_options": pipeline_options,
         }
 
-    
     # ==========================================================
     # FEATURE EXTRACTION
     # ==========================================================
@@ -102,10 +86,7 @@ class UserInterface:
         print("\n=== Feature Extraction ===")
 
         while True:
-
-            path = Path(
-                input("Orthomosaic (.tif) --> ").strip()
-            ).expanduser().resolve()
+            path = Path(input("Orthomosaic (.tif) --> ").strip()).expanduser().resolve()
 
             if not path.exists():
                 print("File does not exist.\n")
@@ -131,50 +112,30 @@ class UserInterface:
         print("Larger area  -> Fewer regions\n")
 
         while True:
-
             try:
+                region_area = float(input("Desired region area (m²) --> "))
 
-                region_area = float(
-                    input("Desired region area (m²) --> ")
-                )
+                compactness = float(input("SLIC Compactness --> "))
 
-                compactness = float(
-                    input("SLIC Compactness --> ")
-                )
+                sigma = float(input("Sigma --> "))
 
-                sigma = float(
-                    input("Sigma --> ")
-                )
-
-                tile_size = int(
-                    input(
-                        "Tile size (pixels) [2048] --> "
-                    ) or 2048
-                )
+                tile_size = int(input("Tile size (pixels) [2048] --> ") or 2048)
 
                 # ----------------------------------------------
                 # Validate Inputs
                 # ----------------------------------------------
 
                 if region_area <= 0:
-                    raise ValueError(
-                        "Region area must be greater than zero."
-                    )
+                    raise ValueError("Region area must be greater than zero.")
 
                 if compactness <= 0:
-                    raise ValueError(
-                        "Compactness must be greater than zero."
-                    )
+                    raise ValueError("Compactness must be greater than zero.")
 
                 if sigma < 0:
-                    raise ValueError(
-                        "Sigma cannot be negative."
-                    )
+                    raise ValueError("Sigma cannot be negative.")
 
                 if tile_size <= 0:
-                    raise ValueError(
-                        "Tile size must be greater than zero."
-                    )
+                    raise ValueError("Tile size must be greater than zero.")
 
                 return {
                     "region_area": region_area,
@@ -184,7 +145,6 @@ class UserInterface:
                 }
 
             except ValueError as e:
-
                 if str(e):
                     print(f"\n{e}\n")
                 else:
@@ -200,47 +160,31 @@ class UserInterface:
         print("\n=== ODM Options ===")
 
         while True:
-
             try:
+                split = int(input("Split Size --> "))
 
-                split = int(
-                    input("Split Size --> ")
-                )
-
-                overlap = int(
-                    input("Overlap Size --> ")
-                )
+                overlap = int(input("Overlap Size --> "))
 
                 if split <= 0:
-                    raise ValueError(
-                        "Split size must be greater than zero."
-                    )
+                    raise ValueError("Split size must be greater than zero.")
 
                 if overlap < 0:
-                    raise ValueError(
-                        "Overlap cannot be negative."
-                    )
+                    raise ValueError("Overlap cannot be negative.")
 
                 break
 
             except ValueError as e:
-
                 if str(e):
                     print(f"\n{e}\n")
                 else:
                     print("\nInvalid split settings.\n")
 
         while True:
+            pc_quality = (
+                input("Point Cloud Quality (low, medium, high) --> ").strip().lower()
+            )
 
-            pc_quality = input(
-                "Point Cloud Quality (low, medium, high) --> "
-            ).strip().lower()
-
-            if pc_quality in (
-                "low",
-                "medium",
-                "high"
-            ):
+            if pc_quality in ("low", "medium", "high"):
                 break
 
             print("Invalid option.\n")
@@ -259,10 +203,7 @@ class UserInterface:
     def _get_existing_directory(prompt):
 
         while True:
-
-            path = Path(
-                input(f"{prompt} --> ").strip()
-            ).expanduser().resolve()
+            path = Path(input(f"{prompt} --> ").strip()).expanduser().resolve()
 
             if path.exists() and path.is_dir():
                 return path
@@ -272,14 +213,9 @@ class UserInterface:
     @staticmethod
     def _get_output_directory(prompt):
 
-        path = Path(
-            input(f"{prompt} --> ").strip()
-        ).expanduser().resolve()
+        path = Path(input(f"{prompt} --> ").strip()).expanduser().resolve()
 
-        path.mkdir(
-            parents=True,
-            exist_ok=True
-        )
+        path.mkdir(parents=True, exist_ok=True)
 
         return path
 
@@ -287,21 +223,14 @@ class UserInterface:
     def _get_project_name(output_path):
 
         while True:
-
-            name = input(
-                "Project Name --> "
-            ).strip()
+            name = input("Project Name --> ").strip()
 
             if not name:
-                print(
-                    "Project name cannot be empty.\n"
-                )
+                print("Project name cannot be empty.\n")
                 continue
 
             if (output_path / name).exists():
-                print(
-                    "Project name already exists.\n"
-                )
+                print("Project name already exists.\n")
                 continue
 
             return name

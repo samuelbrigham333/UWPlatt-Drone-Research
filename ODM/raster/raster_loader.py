@@ -27,16 +27,12 @@ from rasterio.windows import Window
 
 
 class RasterLoader:
-
     def __init__(self, tif_path):
 
         self.tif_path = Path(tif_path)
 
         if not self.tif_path.exists():
-
-            raise FileNotFoundError(
-                f"Raster does not exist: {self.tif_path}"
-            )
+            raise FileNotFoundError(f"Raster does not exist: {self.tif_path}")
 
     # ============================================================
     # LOAD ENTIRE IMAGE
@@ -57,25 +53,12 @@ class RasterLoader:
         """
 
         with rasterio.open(self.tif_path) as src:
-
             if band_indexes is None:
+                band_indexes = list(range(1, src.count + 1))
 
-                band_indexes = list(
-                    range(1, src.count + 1)
-                )
+            bands = src.read(indexes=band_indexes).astype(np.float32, copy=False)
 
-            bands = src.read(
-                indexes=band_indexes
-            ).astype(
-                np.float32,
-                copy=False
-            )
-
-            bands = self._apply_nodata_mask(
-                bands,
-                src,
-                band_indexes
-            )
+            bands = self._apply_nodata_mask(bands, src, band_indexes)
 
         return bands
 
@@ -83,14 +66,7 @@ class RasterLoader:
     # LOAD TILE / WINDOW
     # ============================================================
 
-    def load_window(
-        self,
-        x,
-        y=None,
-        width=None,
-        height=None,
-        band_indexes=None
-    ):
+    def load_window(self, x, y=None, width=None, height=None, band_indexes=None):
         """
         Load a tile/window from the orthomosaic.
 
@@ -116,13 +92,11 @@ class RasterLoader:
         """
 
         with rasterio.open(self.tif_path) as src:
-
             # ----------------------------------------------------
             # RASTERIO WINDOW
             # ----------------------------------------------------
 
             if isinstance(x, Window):
-
                 window = x
 
             # ----------------------------------------------------
@@ -130,56 +104,33 @@ class RasterLoader:
             # ----------------------------------------------------
 
             else:
-
-                if (
-                    y is None
-                    or width is None
-                    or height is None
-                ):
-
+                if y is None or width is None or height is None:
                     raise ValueError(
-                        "Tile coordinates require "
-                        "x, y, width, and height."
+                        "Tile coordinates require x, y, width, and height."
                     )
 
-                window = Window(
-                    col_off=x,
-                    row_off=y,
-                    width=width,
-                    height=height
-                )
+                window = Window(col_off=x, row_off=y, width=width, height=height)
 
             # ----------------------------------------------------
             # DETERMINE BANDS
             # ----------------------------------------------------
 
             if band_indexes is None:
-
-                band_indexes = list(
-                    range(1, src.count + 1)
-                )
+                band_indexes = list(range(1, src.count + 1))
 
             # ----------------------------------------------------
             # LOAD TILE
             # ----------------------------------------------------
 
-            bands = src.read(
-                indexes=band_indexes,
-                window=window
-            ).astype(
-                np.float32,
-                copy=False
+            bands = src.read(indexes=band_indexes, window=window).astype(
+                np.float32, copy=False
             )
 
             # ----------------------------------------------------
             # APPLY NODATA
             # ----------------------------------------------------
 
-            bands = self._apply_nodata_mask(
-                bands,
-                src,
-                band_indexes
-            )
+            bands = self._apply_nodata_mask(bands, src, band_indexes)
 
         return bands
 
@@ -188,11 +139,7 @@ class RasterLoader:
     # ============================================================
 
     @staticmethod
-    def _apply_nodata_mask(
-        bands,
-        src,
-        band_indexes
-    ):
+    def _apply_nodata_mask(bands, src, band_indexes):
         """
         Convert explicit raster nodata values to NaN.
 
@@ -207,30 +154,17 @@ class RasterLoader:
         metadata are masked.
         """
 
-        result = bands.astype(
-            np.float32,
-            copy=True
-        )
+        result = bands.astype(np.float32, copy=True)
 
-        for i, band_index in enumerate(
-            band_indexes
-        ):
-
-            nodata = src.nodatavals[
-                band_index - 1
-            ]
+        for i, band_index in enumerate(band_indexes):
+            nodata = src.nodatavals[band_index - 1]
 
             if nodata is None:
                 continue
 
             band = result[i]
 
-            invalid = (
-                np.isclose(
-                    band,
-                    nodata
-                )
-            )
+            invalid = np.isclose(band, nodata)
 
             band[invalid] = np.nan
 
@@ -264,11 +198,7 @@ class RasterLoader:
         if bands.size == 0:
             return False
 
-        return bool(
-            np.any(
-                np.isfinite(bands)
-            )
-        )
+        return bool(np.any(np.isfinite(bands)))
 
     # ============================================================
     # VALID PIXEL MASK
@@ -286,22 +216,12 @@ class RasterLoader:
         """
 
         if bands is None:
-
-            raise ValueError(
-                "Bands cannot be None."
-            )
+            raise ValueError("Bands cannot be None.")
 
         if bands.ndim != 3:
+            raise ValueError("Expected bands with shape (bands, height, width).")
 
-            raise ValueError(
-                "Expected bands with shape "
-                "(bands, height, width)."
-            )
-
-        return np.any(
-            np.isfinite(bands),
-            axis=0
-        )
+        return np.any(np.isfinite(bands), axis=0)
 
     # ============================================================
     # GET METADATA
@@ -312,41 +232,21 @@ class RasterLoader:
         Return metadata needed by the processing pipeline.
         """
 
-        with rasterio.open(
-            self.tif_path
-        ) as src:
-
+        with rasterio.open(self.tif_path) as src:
             return {
-
                 "width": src.width,
-
                 "height": src.height,
-
                 "count": src.count,
-
-                "pixel_width": abs(
-                    src.transform.a
-                ),
-
-                "pixel_height": abs(
-                    src.transform.e
-                ),
-
+                "pixel_width": abs(src.transform.a),
+                "pixel_height": abs(src.transform.e),
                 "crs": src.crs,
-
                 "transform": src.transform,
-
                 "dtypes": src.dtypes,
-
                 "nodata": src.nodata,
-
                 "nodatavals": src.nodatavals,
-
                 "bounds": src.bounds,
-
                 "scales": src.scales,
-
-                "offsets": src.offsets
+                "offsets": src.offsets,
             }
 
     # ============================================================
@@ -361,44 +261,23 @@ class RasterLoader:
         contains Blue, Green, Red, Red Edge, and NIR.
         """
 
-        with rasterio.open(
-            self.tif_path
-        ) as src:
-
+        with rasterio.open(self.tif_path) as src:
             information = []
 
-            for band_number in range(
-                1,
-                src.count + 1
-            ):
-
-                information.append({
-
-                    "band": band_number,
-
-                    "dtype": src.dtypes[
-                        band_number - 1
-                    ],
-
-                    "nodata": src.nodatavals[
-                        band_number - 1
-                    ],
-
-                    "scale": src.scales[
-                        band_number - 1
-                    ],
-
-                    "offset": src.offsets[
-                        band_number - 1
-                    ],
-
-                    "description": (
-                        src.descriptions[
-                            band_number - 1
-                        ]
-                        if src.descriptions
-                        else None
-                    )
-                })
+            for band_number in range(1, src.count + 1):
+                information.append(
+                    {
+                        "band": band_number,
+                        "dtype": src.dtypes[band_number - 1],
+                        "nodata": src.nodatavals[band_number - 1],
+                        "scale": src.scales[band_number - 1],
+                        "offset": src.offsets[band_number - 1],
+                        "description": (
+                            src.descriptions[band_number - 1]
+                            if src.descriptions
+                            else None
+                        ),
+                    }
+                )
 
         return information

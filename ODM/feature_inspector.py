@@ -9,6 +9,7 @@ These will be used for analysis
 
 import numpy as np
 
+
 class FeatureInspector:
     def __init__(self, indices):
         self.indices = indices
@@ -20,7 +21,6 @@ class FeatureInspector:
         features = {}
 
         for name, raster in self.indices.items():
-
             valid = raster[np.isfinite(raster)]
 
             if valid.size == 0:

@@ -5,15 +5,16 @@ Builds the Docker command used to execute the ODM
 processing pipeline all based on user-provided input and processing options
 """
 
-class ODMCommandBuilder:
 
-    def __init__(self,
-                 image_path,
-                 output_path,
-                 project_name,
-                 options,
-                 image_directory = None,
-                 ):
+class ODMCommandBuilder:
+    def __init__(
+        self,
+        image_path,
+        output_path,
+        project_name,
+        options,
+        image_directory=None,
+    ):
         self.image_path = image_path
         self.image_directory = image_directory
         self.output_path = output_path
@@ -21,31 +22,22 @@ class ODMCommandBuilder:
         self.options = options
 
     def build_command(self):
-        return[
+        return [
             "docker",
             "run",
-
             "--rm",
-
-            #ODM outputs
+            # ODM outputs
             "-v",
             f"{self.output_path}:/datasets",
-
-            #OG Images
+            # OG Images
             "-v",
             f"{self.image_directory or self.image_path}:/datasets/{self.project_name}/images",
-
             "opendronemap/odm:3.6.1",
-
             "--project-path",
             "/datasets",
-
             self.project_name,
-
             "--split",
             str(self.options["split"]),
-
             "--split-overlap",
-            str(self.options["split_overlap"])
+            str(self.options["split_overlap"]),
         ]
-

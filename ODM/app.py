@@ -14,32 +14,26 @@ Coordinates the complete drone-processing workflow:
 9. Run the feature extraction / superpixel pipeline.
 """
 
-from pathlib import Path
 import csv
 import time
+from pathlib import Path
 
 import numpy as np
-from pandas import options
-from pandas import options
 import rasterio
 from rasterio.windows import Window
 
-from ODM.RGBOrthoBuilder import RGBOrthoBuilder
-from ODM.ui import UserInterface
-from ODM.docker_manager import DockerManager
 from ODM.command_builder import ODMCommandBuilder
-from ODM.runner import ODMRunner
-from ODM.validate_images import validate_images
-
+from ODM.docker_manager import DockerManager
 from ODM.raster.raster_loader import RasterLoader
 from ODM.raster.vegetation_indices import VegetationIndices
-
-from ODM.superpixel_segmenter import SuperpixelSegmenter
 from ODM.region_feature_extractor import RegionFeatureExtractor
+from ODM.runner import ODMRunner
+from ODM.superpixel_segmenter import SuperpixelSegmenter
+from ODM.ui import UserInterface
+from ODM.validate_images import validate_images
 
 
 class ODMApplication:
-
     def __init__(self):
         self.results = {}
 
@@ -50,7 +44,6 @@ class ODMApplication:
     def execute(self):
 
         while True:
-
             selection = UserInterface.get_start_option()
 
             # -------------------------------------------------
@@ -58,73 +51,45 @@ class ODMApplication:
             # -------------------------------------------------
 
             if selection == "1":
-
                 try:
-
                     ortho_path = self.run_odm_pipeline()
 
-                    self.run_feature_pipeline(
-                        ortho_path
-                    )
+                    self.run_feature_pipeline(ortho_path)
 
                 except Exception as error:
+                    print("\n========================================")
 
-                    print(
-                        "\n========================================"
-                    )
-
-                    print(
-                        "[ERROR]"
-                    )
+                    print("[ERROR]")
 
                     print(error)
 
-                    print(
-                        "========================================"
-                    )
+                    print("========================================")
 
             # -------------------------------------------------
             # ANALYZE EXISTING ORTHO
             # -------------------------------------------------
 
             elif selection == "2":
-
                 try:
+                    ortho_path = UserInterface.get_orthomosaic_path()
 
-                    ortho_path = (
-                        UserInterface
-                        .get_orthomosaic_path()
-                    )
-
-                    self.run_feature_pipeline(
-                        ortho_path
-                    )
+                    self.run_feature_pipeline(ortho_path)
 
                 except Exception as error:
+                    print("\n========================================")
 
-                    print(
-                        "\n========================================"
-                    )
-
-                    print(
-                        "[ERROR]"
-                    )
+                    print("[ERROR]")
 
                     print(error)
 
-                    print(
-                        "========================================"
-                    )
+                    print("========================================")
 
             # -------------------------------------------------
             # EXIT
             # -------------------------------------------------
 
             elif selection == "3":
-
-                print(
-                    "\nExiting..."
-                )
+                print("\nExiting...")
 
                 break
 
@@ -134,9 +99,7 @@ class ODMApplication:
 
     def run_odm_pipeline(self):
 
-        print(
-            "\n=== ODM Processing ==="
-        )
+        print("\n=== ODM Processing ===")
 
         # =====================================================
         # DOCKER
@@ -148,84 +111,46 @@ class ODMApplication:
         # ODM CONFIGURATION
         # =====================================================
 
-        config = (
-            UserInterface
-            .get_odm_configuration()
-        )
+        config = UserInterface.get_odm_configuration()
 
-        image_path = Path(
-            config["image_path"]
-        )
+        image_path = Path(config["image_path"])
 
-        output_path = Path(
-            config["output_path"]
-        )
+        output_path = Path(config["output_path"])
 
-        project_name = config[
-            "project_name"
-        ]
+        project_name = config["project_name"]
 
-        options = config[
-            "pipeline_options"
-        ]
+        options = config["pipeline_options"]
 
-#NOTE   
-#Most code from ODM processing for logic and commands should be able to be reused for RGB ORTHO
-#Do not write any new code before asking "did I already do this???"
+        # NOTE
+        # Most code from ODM processing for logic and commands should be able to be reused for RGB ORTHO
+        # Do not write any new code before asking "did I already do this???"
         # =====================================================
         # IMAGE VALIDATION
         # =====================================================
 
-        print(
-            "\n=== Image Validation ==="
-        )
+        print("\n=== Image Validation ===")
 
-        print(
-            f"Validating images in:\n"
-            f"{image_path}"
-        )
+        print(f"Validating images in:\n{image_path}")
 
-        validate_images(
-            image_path
-        )
+        validate_images(image_path)
 
-        print(
-            "Metadata validation passed."
-        )
+        print("Metadata validation passed.")
 
         # =====================================================
         # BUILD ODM COMMAND
         # =====================================================
 
-        print(
-            "\nBuilding ODM command..."
-        )
+        print("\nBuilding ODM command...")
 
-
-        
-
-
-        #MultiSpectral ODM Command Builder
+        # MultiSpectral ODM Command Builder
         command_builder = ODMCommandBuilder(
-            image_path,
-            output_path,
-            project_name,
-            options
+            image_path, output_path, project_name, options
         )
 
-        command = (
-            command_builder.build_command()
-        )
+        command = command_builder.build_command()
 
-        
-
-        print("\Multispectral ortho built successfully!")
+        print(r"\Multispectral ortho built successfully!")
         print("Building RGB Ortho command...")
-
-        
-        
-                
-        
 
         print("RGB Ortho built successfully!")
 
@@ -233,15 +158,11 @@ class ODMApplication:
         # DISPLAY COMMAND
         # =====================================================
 
-        print(
-            "\n=== ODM Command ==="
-        )
+        print("\n=== ODM Command ===")
 
         print(
             " ".join(
-                f'"{argument}"'
-                if " " in str(argument)
-                else str(argument)
+                f'"{argument}"' if " " in str(argument) else str(argument)
                 for argument in command
             )
         )
@@ -250,71 +171,48 @@ class ODMApplication:
         # RUN ODM
         # =====================================================
 
-        print(
-            "\n=== Running ODM ==="
-        )
+        print("\n=== Running ODM ===")
 
-        runner = ODMRunner(
-            command
-        )
+        runner = ODMRunner(command)
 
         runner.run()
 
         # BUILD RGB ORTHOMOSAIC
 
-        #BUILD RGB VIEW
-        rgb_directory = self._create_rgb_view(
+        # BUILD RGB VIEW
+        rgb_directory = self._create_rgb_view(image_path, output_path, project_name)
+
+        # BUILD RGB ODM COMMAND
+        rgb_command_builder = ODMCommandBuilder(
             image_path,
             output_path,
-            project_name
-                    )
+            f"{project_name}_rgb",
+            options,
+            image_directory=rgb_directory,
+        )
 
-        #BUILD RGB ODM COMMAND
-        rgb_command_builder = ODMCommandBuilder(
-                image_path,
-                output_path,
-                f"{project_name}_rgb",
-                options,
-                image_directory=rgb_directory
-                        )
-                
         rgb_command = rgb_command_builder.build_command()
-                
-        #RUN RGB ODM 
-        rgb_runner = ODMRunner(
-                rgb_command
-                        )
+
+        # RUN RGB ODM
+        rgb_runner = ODMRunner(rgb_command)
 
         rgb_runner.run()
-                
 
         # =====================================================
         # LOCATE PROJECT
         # =====================================================
 
-        project_path = (
-            output_path /
-            project_name
-        )
+        project_path = output_path / project_name
 
         # =====================================================
         # LOCATE ORTHOMOSAIC
         # =====================================================
 
-        ortho_path = (
-            self._find_orthomosaic(
-                project_path
-            )
-        )
+        ortho_path = self._find_orthomosaic(project_path)
 
-        print(
-            "\n=== ODM Complete ==="
-        )
+        print("\n=== ODM Complete ===")
 
-        print(
-            f"Orthomosaic --> "
-            f"{ortho_path}"
-        )
+        print(f"Orthomosaic --> {ortho_path}")
 
     # =========================================================
     # DOCKER MANAGEMENT
@@ -322,43 +220,29 @@ class ODMApplication:
 
     def ensure_docker_running(self):
 
-        print(
-            "\n=== Docker Check ==="
-        )
+        print("\n=== Docker Check ===")
 
         docker_manager = DockerManager()
 
         if docker_manager.docker_running():
-
-            print(
-                "Docker is already running."
-            )
+            print("Docker is already running.")
 
             return
 
-        print(
-            "Docker Desktop is not running."
-        )
+        print("Docker Desktop is not running.")
 
         docker_manager.start_docker()
 
-        docker_ready = (
-            docker_manager.wait_for_docker(
-                timeout=120
-            )
-        )
+        docker_ready = docker_manager.wait_for_docker(timeout=120)
 
         if not docker_ready:
-
             raise RuntimeError(
                 "\nDocker Desktop was started, "
                 "but the Docker daemon did not "
                 "become ready within 120 seconds."
             )
 
-        print(
-            "Docker Desktop is ready."
-        )
+        print("Docker Desktop is ready.")
 
     # =========================================================
     # FIND ORTHOMOSAIC
@@ -367,85 +251,40 @@ class ODMApplication:
     @staticmethod
     def _find_orthomosaic(project_path):
 
-        project_path = Path(
-            project_path
-        )
+        project_path = Path(project_path)
 
         candidates = [
-
-            (
-                project_path /
-                "odm_orthophoto" /
-                "odm_orthophoto.tif"
-            ),
-
-            (
-                project_path /
-                "odm_orthophoto" /
-                "odm_orthophoto.original.tif"
-            ),
-
-            #Double JPG Ortho Test - Overall Less Quality Make it work 
-            (
-                project_path /
-                "odm_orthophoto" /
-                "odm_orthophoto.original.jpg"
-            ),
-
-            #JPG Test
-            (
-                project_path /
-                "odm_orthophoto" /
-                "odm_orthophoto.rgb.tif"
-            )
+            (project_path / "odm_orthophoto" / "odm_orthophoto.tif"),
+            (project_path / "odm_orthophoto" / "odm_orthophoto.original.tif"),
+            # Double JPG Ortho Test - Overall Less Quality Make it work
+            (project_path / "odm_orthophoto" / "odm_orthophoto.original.jpg"),
+            # JPG Test
+            (project_path / "odm_orthophoto" / "odm_orthophoto.rgb.tif"),
         ]
 
         for candidate in candidates:
-
             if candidate.exists():
-
                 return candidate
 
-        tif_files = list(
-            project_path.rglob(
-                "*.tif"
-            )
-        )
+        tif_files = list(project_path.rglob("*.tif"))
 
         if tif_files:
-
             for tif in tif_files:
-
-                if (
-                    "orthophoto"
-                    in tif.name.lower()
-                ):
-
+                if "orthophoto" in tif.name.lower():
                     return tif
 
             return tif_files[0]
 
-        #JPG RGB Testing
-        jpg_files = list(
-                    project_path.rglob(
-                        "*.jpg"
-                    )
-                )
-        
+        # JPG RGB Testing
+        jpg_files = list(project_path.rglob("*.jpg"))
+
         if jpg_files:
-        
             for jpg in jpg_files:
-        
-                if (
-                    "orthophoto"
-                    in jpg.name.lower()
-                    ):
-        
-                     return tif
-        
+                if "orthophoto" in jpg.name.lower():
+                    return tif
+
             return jpg_files[0]
 
-        
         raise FileNotFoundError(
             "\nODM completed, but an "
             "orthomosaic could not be found.\n\n"
@@ -457,104 +296,56 @@ class ODMApplication:
     # FEATURE PIPELINE
     # =========================================================
 
-    def run_feature_pipeline(
-        self,
-        ortho_path
-    ):
+    def run_feature_pipeline(self, ortho_path):
 
-        ortho_path = Path(
-            ortho_path
-        )
+        ortho_path = Path(ortho_path)
 
         if not ortho_path.exists():
+            raise FileNotFoundError(f"\nOrthomosaic does not exist:\n{ortho_path}")
 
-            raise FileNotFoundError(
-                f"\nOrthomosaic does not exist:\n"
-                f"{ortho_path}"
-            )
+        print("\n=== Feature Extraction ===")
 
-        print(
-            "\n=== Feature Extraction ==="
-        )
-
-        print(
-            f"Orthomosaic (.tif) --> "
-            f"{ortho_path}"
-        )
+        print(f"Orthomosaic (.tif) --> {ortho_path}")
 
         # =====================================================
         # READ ORTHOMOSAIC METADATA
         # =====================================================
 
-        print(
-            "\nReading orthomosaic information..."
-        )
+        print("\nReading orthomosaic information...")
 
-        metadata = (
-            self._read_raster_metadata(
-                ortho_path
-            )
-        )
+        metadata = self._read_raster_metadata(ortho_path)
 
         width = metadata["width"]
         height = metadata["height"]
         band_count = metadata["count"]
 
-        pixel_width = metadata[
-            "pixel_width"
-        ]
+        pixel_width = metadata["pixel_width"]
 
-        pixel_height = metadata[
-            "pixel_height"
-        ]
+        pixel_height = metadata["pixel_height"]
 
         # =====================================================
         # TOTAL AREA
         # =====================================================
 
-        total_area_m2 = (
-            width *
-            height *
-            pixel_width *
-            pixel_height
-        )
+        total_area_m2 = width * height * pixel_width * pixel_height
 
-        print(
-            "\n=== Orthomosaic Information ==="
-        )
+        print("\n=== Orthomosaic Information ===")
 
-        print(
-            f"Width       : "
-            f"{width:,} pixels"
-        )
+        print(f"Width       : {width:,} pixels")
 
-        print(
-            f"Height      : "
-            f"{height:,} pixels"
-        )
+        print(f"Height      : {height:,} pixels")
 
-        print(
-            f"Bands       : "
-            f"{band_count}"
-        )
+        print(f"Bands       : {band_count}")
 
-        print(
-            f"Resolution  : "
-            f"{pixel_width:.4f} × "
-            f"{pixel_height:.4f} m"
-        )
+        print(f"Resolution  : {pixel_width:.4f} × {pixel_height:.4f} m")
 
-        print(
-            f"Total Area  : "
-            f"{total_area_m2:,.2f} m²"
-        )
+        print(f"Total Area  : {total_area_m2:,.2f} m²")
 
         # =====================================================
         # BAND VALIDATION
         # =====================================================
 
         if band_count < 5:
-
             raise ValueError(
                 "\nThe feature pipeline requires "
                 "at least 5 bands.\n\n"
@@ -567,134 +358,67 @@ class ODMApplication:
                 f"Found {band_count} bands."
             )
 
-        print(
-            "\nSpectral band configuration:"
-        )
+        print("\nSpectral band configuration:")
 
-        print(
-            "  Band 1 -> Red"
-        )
+        print("  Band 1 -> Red")
 
-        print(
-            "  Band 2 -> Green"
-        )
+        print("  Band 2 -> Green")
 
-        print(
-            "  Band 3 -> NIR"
-        )
+        print("  Band 3 -> NIR")
 
-        print(
-            "  Band 4 -> Red Edge"
-        )
+        print("  Band 4 -> Red Edge")
 
-        print(
-            "  Band 5 -> Alpha"
-        )
+        print("  Band 5 -> Alpha")
 
         # =====================================================
         # SUPERPIXEL OPTIONS
         # =====================================================
 
-        superpixel_options = (
-            UserInterface
-            .get_superpixel_options()
-        )
+        superpixel_options = UserInterface.get_superpixel_options()
 
-        region_area = float(
-            superpixel_options[
-                "region_area"
-            ]
-        )
+        region_area = float(superpixel_options["region_area"])
 
-        compactness = float(
-            superpixel_options[
-                "compactness"
-            ]
-        )
+        compactness = float(superpixel_options["compactness"])
 
-        sigma = float(
-            superpixel_options[
-                "sigma"
-            ]
-        )
+        sigma = float(superpixel_options["sigma"])
 
-        tile_size = int(
-            superpixel_options[
-                "tile_size"
-            ]
-        )
+        tile_size = int(superpixel_options["tile_size"])
 
         if region_area <= 0:
-
-            raise ValueError(
-                "Region area must be greater than zero."
-            )
+            raise ValueError("Region area must be greater than zero.")
 
         if tile_size <= 0:
+            raise ValueError("Tile size must be greater than zero.")
 
-            raise ValueError(
-                "Tile size must be greater than zero."
-            )
+        print("\n=== Superpixel Configuration ===")
 
-        print(
-            "\n=== Superpixel Configuration ==="
-        )
+        print(f"Region Area --> {region_area} m²")
 
-        print(
-            f"Region Area --> "
-            f"{region_area} m²"
-        )
+        print(f"Compactness --> {compactness}")
 
-        print(
-            f"Compactness --> "
-            f"{compactness}"
-        )
+        print(f"Sigma --> {sigma}")
 
-        print(
-            f"Sigma --> "
-            f"{sigma}"
-        )
-
-        print(
-            f"Tile Size --> "
-            f"{tile_size} pixels"
-        )
+        print(f"Tile Size --> {tile_size} pixels")
 
         # =====================================================
         # ESTIMATE TOTAL REGIONS
         # =====================================================
 
-        estimated_regions = max(
-            1,
-            int(
-                round(
-                    total_area_m2 /
-                    region_area
-                )
-            )
-        )
+        estimated_regions = max(1, round(total_area_m2 / region_area))
 
-        print(
-            f"\nEstimated total regions --> "
-            f"{estimated_regions:,}"
-        )
+        print(f"\nEstimated total regions --> {estimated_regions:,}")
 
         # =====================================================
         # PIXEL AREA
         # =====================================================
 
-        pixel_area_m2 = (
-            pixel_width *
-            pixel_height
-        )
+        pixel_area_m2 = pixel_width * pixel_height
 
         # =====================================================
         # RASTER LOADER
         # =====================================================
 
-        loader = RasterLoader(
-            ortho_path
-        )
+        loader = RasterLoader(ortho_path)
 
         all_regions = {}
 
@@ -704,351 +428,179 @@ class ODMApplication:
         # OPEN ORTHOMOSAIC
         # =====================================================
 
-        with rasterio.open(
-            ortho_path
-        ) as src:
+        with rasterio.open(ortho_path) as src:
+            total_tiles_x = int(np.ceil(width / tile_size))
 
-            total_tiles_x = int(
-                np.ceil(
-                    width /
-                    tile_size
-                )
-            )
+            total_tiles_y = int(np.ceil(height / tile_size))
 
-            total_tiles_y = int(
-                np.ceil(
-                    height /
-                    tile_size
-                )
-            )
+            total_tiles = total_tiles_x * total_tiles_y
 
-            total_tiles = (
-                total_tiles_x *
-                total_tiles_y
-            )
-
-            print(
-                f"\nTotal tiles --> "
-                f"{total_tiles:,}"
-            )
+            print(f"\nTotal tiles --> {total_tiles:,}")
 
             # =================================================
             # TILE LOOP
             # =================================================
 
-            for row in range(
-                0,
-                src.height,
-                tile_size
-            ):
-
-                for col in range(
-                    0,
-                    src.width,
-                    tile_size
-                ):
-
+            for row in range(0, src.height, tile_size):
+                for col in range(0, src.width, tile_size):
                     tile_start = time.time()
 
                     tile_number += 1
 
-                    window_width = min(
-                        tile_size,
-                        src.width - col
-                    )
+                    window_width = min(tile_size, src.width - col)
 
-                    window_height = min(
-                        tile_size,
-                        src.height - row
-                    )
+                    window_height = min(tile_size, src.height - row)
 
                     window = Window(
                         col_off=col,
                         row_off=row,
                         width=window_width,
-                        height=window_height
+                        height=window_height,
                     )
 
-                    tile_area_m2 = (
-                        window_width *
-                        window_height *
-                        pixel_area_m2
-                    )
+                    tile_area_m2 = window_width * window_height * pixel_area_m2
 
-                    target_segments = max(
-                        1,
-                        int(
-                            round(
-                                tile_area_m2 /
-                                region_area
-                            )
-                        )
-                    )
+                    target_segments = max(1, round(tile_area_m2 / region_area))
 
-                    print(
-                        "\n" + "=" * 60
-                    )
+                    print("\n" + "=" * 60)
 
-                    print(
-                        f"TILE {tile_number} / "
-                        f"{total_tiles}"
-                    )
+                    print(f"TILE {tile_number} / {total_tiles}")
 
-                    print(
-                        f"Position: "
-                        f"x={col}, y={row}"
-                    )
+                    print(f"Position: x={col}, y={row}")
 
-                    print(
-                        f"Dimensions: "
-                        f"{window_width} × "
-                        f"{window_height} pixels"
-                    )
+                    print(f"Dimensions: {window_width} × {window_height} pixels")
 
-                    print(
-                        f"Tile area: "
-                        f"{tile_area_m2:,.2f} m²"
-                    )
+                    print(f"Tile area: {tile_area_m2:,.2f} m²")
 
-                    print(
-                        f"Target region area: "
-                        f"{region_area:.2f} m²"
-                    )
+                    print(f"Target region area: {region_area:.2f} m²")
 
-                    print(
-                        f"Target superpixels: "
-                        f"{target_segments:,}"
-                    )
+                    print(f"Target superpixels: {target_segments:,}")
 
-                    print(
-                        "=" * 60
-                    )
+                    print("=" * 60)
 
                     # -----------------------------------------
                     # LOAD TILE
                     # -----------------------------------------
 
-                    tile = loader.load_window(
-                        window
-                    )
+                    tile = loader.load_window(window)
 
                     # -----------------------------------------
                     # BAND DIAGNOSTICS
                     # -----------------------------------------
 
-                    self._print_band_diagnostics(
-                        tile
-                    )
+                    self._print_band_diagnostics(tile)
 
                     # -----------------------------------------
                     # SLIC
                     # -----------------------------------------
 
-                    print(
-                        "\n[1/3] Generating superpixels..."
-                    )
+                    print("\n[1/3] Generating superpixels...")
 
                     segmenter = SuperpixelSegmenter(
                         num_segments=target_segments,
                         compactness=compactness,
-                        sigma=sigma
+                        sigma=sigma,
                     )
 
-                    labels = segmenter.run(
-                        tile
-                    )
+                    labels = segmenter.run(tile)
 
                     if labels is None:
+                        tile_elapsed = time.time() - tile_start
 
-                        tile_elapsed = (
-                            time.time() -
-                            tile_start
-                        )
+                        print(f"\nTile {tile_number} skipped.")
 
-                        print(
-                            "\nTile "
-                            f"{tile_number} skipped."
-                        )
-
-                        print(
-                            f"Tile time: "
-                            f"{tile_elapsed:.1f} seconds"
-                        )
+                        print(f"Tile time: {tile_elapsed:.1f} seconds")
 
                         del tile
                         del segmenter
 
                         continue
 
-                    valid_superpixels = np.unique(
-                        labels[
-                            labels >= 0
-                        ]
-                    ).size
+                    valid_superpixels = np.unique(labels[labels >= 0]).size
 
-                    print(
-                        f"      Completed: "
-                        f"{valid_superpixels:,} "
-                        f"superpixels"
-                    )
+                    print(f"      Completed: {valid_superpixels:,} superpixels")
 
                     # -----------------------------------------
                     # VEGETATION INDICES
                     # -----------------------------------------
 
-                    print(
-                        "\n[2/3] Calculating "
-                        "vegetation indices..."
-                    )
+                    print("\n[2/3] Calculating vegetation indices...")
 
-                    vegetation = VegetationIndices(
-                        tile
-                    )
+                    vegetation = VegetationIndices(tile)
 
-                                        
                     ndvi = vegetation.ndvi()
 
-                    print(
-                        "      NDVI      ✓"
-                    )
+                    print("      NDVI      ✓")
 
                     gndvi = vegetation.gndvi()
 
-                    print(
-                        "      GNDVI     ✓"
-                    )
+                    print("      GNDVI     ✓")
 
                     ndre = vegetation.ndre()
 
-                    print(
-                        "      NDRE      ✓"
-                    )
+                    print("      NDRE      ✓")
 
-                    ci_red_edge = (
-                        vegetation.ci_red_edge()
-                    )
+                    ci_red_edge = vegetation.ci_red_edge()
 
-                    print(
-                        "      CI-RE     ✓"
-                    )
+                    print("      CI-RE     ✓")
 
-                    evenson = (
-                        vegetation.evenson()
-                    )
+                    evenson = vegetation.evenson()
 
-                    print(
-                        "   Evenson     "
-                    )
+                    print("   Evenson     ")
 
                     # -----------------------------------------
                     # FEATURE DIAGNOSTICS
                     # -----------------------------------------
 
-                    self._print_feature_diagnostic(
-                        "NDVI",
-                        ndvi
-                    )
+                    self._print_feature_diagnostic("NDVI", ndvi)
 
-                    self._print_feature_diagnostic(
-                        "GNDVI",
-                        gndvi
-                    )
+                    self._print_feature_diagnostic("GNDVI", gndvi)
 
-                    self._print_feature_diagnostic(
-                        "NDRE",
-                        ndre
-                    )
+                    self._print_feature_diagnostic("NDRE", ndre)
 
-                    self._print_feature_diagnostic(
-                        "CI_RedEdge",
-                        ci_red_edge
-                    )
+                    self._print_feature_diagnostic("CI_RedEdge", ci_red_edge)
 
-                    self._print_feature_diagnostic(
-                        "Evenson",
-                        evenson
-                    )
+                    self._print_feature_diagnostic("Evenson", evenson)
 
                     # -----------------------------------------
                     # REGION FEATURE EXTRACTION
                     # -----------------------------------------
 
-                    print(
-                        "\n[3/3] Extracting "
-                        "region statistics..."
+                    print("\n[3/3] Extracting region statistics...")
+
+                    extractor = RegionFeatureExtractor(
+                        labels=labels,
+                        pixel_area_m2=pixel_area_m2,
+                        tile_number=tile_number,
                     )
 
-                    extractor = (
-                        RegionFeatureExtractor(
-                            labels=labels,
-                            pixel_area_m2=pixel_area_m2,
-                            tile_number=tile_number
-                        )
-                    )
+                    extractor.add_feature("Red", tile[0])
 
-                    extractor.add_feature(
-                        "Red",
-                        tile[0]
-                    )
+                    extractor.add_feature("Green", tile[1])
 
-                    extractor.add_feature(
-                        "Green",
-                        tile[1]
-                    )
+                    extractor.add_feature("NIR", tile[2])
 
-                    extractor.add_feature(
-                        "NIR",
-                        tile[2]
-                    )
+                    extractor.add_feature("Red Edge", tile[3])
 
-                    extractor.add_feature(
-                        "Red Edge",
-                        tile[3]
-                    )
+                    extractor.add_feature("NDVI", ndvi)
 
-                    extractor.add_feature(
-                        "NDVI",
-                        ndvi
-                    )
+                    extractor.add_feature("GNDVI", gndvi)
 
-                    extractor.add_feature(
-                        "GNDVI",
-                        gndvi
-                    )
+                    extractor.add_feature("NDRE", ndre)
 
-                    extractor.add_feature(
-                        "NDRE",
-                        ndre
-                    )
+                    extractor.add_feature("CI_RedEdge", ci_red_edge)
 
-                    extractor.add_feature(
-                        "CI_RedEdge",
-                        ci_red_edge
-                    )
+                    extractor.add_feature("Evenson", evenson)
 
-                    extractor.add_feature(
-                        "Evenson",
-                        evenson
-                    )
+                    regions = extractor.get_features()
 
-                    regions = (
-                        extractor.get_features()
-                    )
-
-                
-
-                    print(
-                        f"      Regions extracted: "
-                        f"{len(regions):,}"
-                    )
+                    print(f"      Regions extracted: {len(regions):,}")
 
                     # -----------------------------------------
                     # STORE RESULTS
                     # -----------------------------------------
 
-                    all_regions.update(
-                        regions
-                    )
+                    all_regions.update(regions)
 
                     # -----------------------------------------
                     # RELEASE TILE MEMORY
@@ -1065,33 +617,15 @@ class ODMApplication:
                     del extractor
                     del segmenter
 
-                    tile_elapsed = (
-                        time.time() -
-                        tile_start
-                    )
+                    tile_elapsed = time.time() - tile_start
 
-                    completed_percent = (
-                        tile_number /
-                        total_tiles
-                    ) * 100
+                    completed_percent = (tile_number / total_tiles) * 100
 
-                    average_tile_time = (
-                        time.time() -
-                        (
-                            tile_start -
-                            tile_elapsed
-                        )
-                    )
+                    time.time() - (tile_start - tile_elapsed)
 
-                    print(
-                        "\nTile "
-                        f"{tile_number} complete ✓"
-                    )
+                    print(f"\nTile {tile_number} complete ✓")
 
-                    print(
-                        f"Tile time: "
-                        f"{tile_elapsed:.1f} seconds"
-                    )
+                    print(f"Tile time: {tile_elapsed:.1f} seconds")
 
                     print(
                         "Overall progress: "
@@ -1104,34 +638,21 @@ class ODMApplication:
         # PIPELINE COMPLETE
         # =====================================================
 
-        print(
-            "\n=== Feature Pipeline Complete ==="
-        )
+        print("\n=== Feature Pipeline Complete ===")
 
-        print(
-            f"Total regions extracted --> "
-            f"{len(all_regions):,}"
-        )
+        print(f"Total regions extracted --> {len(all_regions):,}")
 
         # =====================================================
         # SAVE CSV
         # =====================================================
 
-        csv_path = (
-            ortho_path.parent.parent /
-            "region_features.csv"
-        )
+        csv_path = ortho_path.parent.parent / "region_features.csv"
 
-        self._save_regions_to_csv(
-            all_regions,
-            csv_path
-        )
+        self._save_regions_to_csv(all_regions, csv_path)
 
         self.results = all_regions
 
-        self._print_sample_regions(
-            all_regions
-        )
+        self._print_sample_regions(all_regions)
 
         return all_regions
 
@@ -1140,136 +661,69 @@ class ODMApplication:
     # =========================================================
 
     @staticmethod
-    def _save_regions_to_csv(
-        regions,
-        output_path
-    ):
+    def _save_regions_to_csv(regions, output_path):
 
         if not regions:
-
-            print(
-                "\nNo region data to save."
-            )
+            print("\nNo region data to save.")
 
             return
 
-        output_path = Path(
-            output_path
-        )
+        output_path = Path(output_path)
 
-        output_path.parent.mkdir(
-            parents=True,
-            exist_ok=True
-        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        fieldnames = {
-            "region_id"
-        }
+        fieldnames = {"region_id"}
 
         for features in regions.values():
+            fieldnames.update(features.keys())
 
-            fieldnames.update(
-                features.keys()
-            )
-
-        fieldnames = sorted(
-            fieldnames
-        )
+        fieldnames = sorted(fieldnames)
 
         if "region_id" in fieldnames:
+            fieldnames.remove("region_id")
 
-            fieldnames.remove(
-                "region_id"
-            )
+            fieldnames.insert(0, "region_id")
 
-            fieldnames.insert(
-                0,
-                "region_id"
-            )
-
-        with open(
-            output_path,
-            "w",
-            newline="",
-            encoding="utf-8"
-        ) as csv_file:
-
-            writer = csv.DictWriter(
-                csv_file,
-                fieldnames=fieldnames
-            )
+        with open(output_path, "w", newline="", encoding="utf-8") as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
 
             writer.writeheader()
 
-            for region_id, features in (
-                regions.items()
-            ):
+            for region_id, features in regions.items():
+                row = {"region_id": region_id}
 
-                row = {
-                    "region_id": region_id
-                }
-
-                for name, value in (
-                    features.items()
-                ):
-
-                    if isinstance(
-                        value,
-                        np.generic
-                    ):
-
+                for name, value in features.items():
+                    if isinstance(value, np.generic):
                         value = value.item()
 
                     row[name] = value
 
-                writer.writerow(
-                    row
-                )
+                writer.writerow(row)
 
-        print(
-            "\n=== CSV Output ==="
-        )
+        print("\n=== CSV Output ===")
 
-        print(
-            f"Region feature CSV --> "
-            f"{output_path}"
-        )
+        print(f"Region feature CSV --> {output_path}")
 
-        print(
-            f"Rows written --> "
-            f"{len(regions):,}"
-        )
+        print(f"Rows written --> {len(regions):,}")
 
     # =========================================================
     # RASTER METADATA
     # =========================================================
 
     @staticmethod
-    def _read_raster_metadata(
-        ortho_path
-    ):
+    def _read_raster_metadata(ortho_path):
 
-        with rasterio.open(
-            ortho_path
-        ) as src:
-
+        with rasterio.open(ortho_path) as src:
             return {
                 "width": src.width,
                 "height": src.height,
                 "count": src.count,
-
-                "pixel_width": abs(
-                    src.transform.a
-                ),
-
-                "pixel_height": abs(
-                    src.transform.e
-                ),
-
+                "pixel_width": abs(src.transform.a),
+                "pixel_height": abs(src.transform.e),
                 "dtype": src.dtypes,
                 "nodata": src.nodata,
                 "crs": src.crs,
-                "transform": src.transform
+                "transform": src.transform,
             }
 
     # =========================================================
@@ -1277,57 +731,27 @@ class ODMApplication:
     # =========================================================
 
     @staticmethod
-    def _print_band_diagnostics(
-        bands
-    ):
+    def _print_band_diagnostics(bands):
 
-        print(
-            "\nRAW BAND CHECK"
-        )
+        print("\nRAW BAND CHECK")
 
-        print(
-            f"Shape: {bands.shape}"
-        )
+        print(f"Shape: {bands.shape}")
 
-        names = [
-            "Red",
-            "Green",
-            "NIR",
-            "Red Edge",
-            "Alpha"
-        ]
+        names = ["Red", "Green", "NIR", "Red Edge", "Alpha"]
 
-        for index in range(
-            bands.shape[0]
-        ):
-
+        for index in range(bands.shape[0]):
             band = bands[index]
 
-            finite = np.isfinite(
-                band
-            )
+            finite = np.isfinite(band)
 
-            name = (
-                names[index]
-                if index < len(names)
-                else "Unknown"
-            )
+            name = names[index] if index < len(names) else "Unknown"
 
-            if not np.any(
-                finite
-            ):
-
-                print(
-                    f"Band {index + 1} "
-                    f"({name}): "
-                    f"NO FINITE VALUES"
-                )
+            if not np.any(finite):
+                print(f"Band {index + 1} ({name}): NO FINITE VALUES")
 
                 continue
 
-            values = band[
-                finite
-            ]
+            values = band[finite]
 
             print(
                 f"Band {index + 1} "
@@ -1344,157 +768,78 @@ class ODMApplication:
     # =========================================================
 
     @staticmethod
-    def _print_feature_diagnostic(
-        name,
-        feature
-    ):
+    def _print_feature_diagnostic(name, feature):
 
-        finite = np.isfinite(
-            feature
-        )
+        finite = np.isfinite(feature)
 
-        finite_count = int(
-            np.count_nonzero(
-                finite
-            )
-        )
+        finite_count = int(np.count_nonzero(finite))
 
-        nan_count = int(
-            np.count_nonzero(
-                ~finite
-            )
-        )
+        nan_count = int(np.count_nonzero(~finite))
 
-        print(
-            f"{name} CHECK"
-        )
+        print(f"{name} CHECK")
 
         if finite_count == 0:
-
-            print(
-                f"{name} contains "
-                f"NO finite values."
-            )
+            print(f"{name} contains NO finite values.")
 
             return
 
-        values = feature[
-            finite
-        ]
+        values = feature[finite]
 
-        print(
-            f"{name} min: "
-            f"{np.min(values)}"
-        )
+        print(f"{name} min: {np.min(values)}")
 
-        print(
-            f"{name} max: "
-            f"{np.max(values)}"
-        )
+        print(f"{name} max: {np.max(values)}")
 
-        print(
-            f"{name} mean: "
-            f"{np.mean(values)}"
-        )
+        print(f"{name} mean: {np.mean(values)}")
 
-        print(
-            f"{name} finite: "
-            f"{finite_count:,}"
-        )
+        print(f"{name} finite: {finite_count:,}")
 
-        print(
-            f"{name} NaN: "
-            f"{nan_count:,}"
-        )
+        print(f"{name} NaN: {nan_count:,}")
 
     # =========================================================
     # SAMPLE REGION OUTPUT
     # =========================================================
 
     @staticmethod
-    def _print_sample_regions(
-        regions,
-        count=5
-    ):
+    def _print_sample_regions(regions, count=5):
 
         if not regions:
-
-            print(
-                "\nNo regions were extracted."
-            )
+            print("\nNo regions were extracted.")
 
             return
 
-        print(
-            "\n=== Sample Region Features ==="
-        )
+        print("\n=== Sample Region Features ===")
 
-        sample_items = list(
-            regions.items()
-        )[:count]
+        sample_items = list(regions.items())[:count]
 
-        for region_id, features in (
-            sample_items
-        ):
+        for region_id, features in sample_items:
+            print(f"\nRegion {region_id}")
 
-            print(
-                f"\nRegion {region_id}"
-            )
-
-            for name, value in (
-                features.items()
-            ):
-
-                if isinstance(
-                    value,
-                    (float, np.floating)
-                ):
-
-                    if np.isnan(
-                        value
-                    ):
-
-                        print(
-                            f"  {name}: NaN"
-                        )
+            for name, value in features.items():
+                if isinstance(value, (float, np.floating)):
+                    if np.isnan(value):
+                        print(f"  {name}: NaN")
 
                     else:
-
-                        print(
-                            f"  {name}: "
-                            f"{value:.6f}"
-                        )
+                        print(f"  {name}: {value:.6f}")
 
                 else:
-
-                    print(
-                        f"  {name}: "
-                        f"{value}"
-                    )
-                    #progress written in
+                    print(f"  {name}: {value}")
+                    # progress written in
 
     def _get_rgb_images(self, image_path):
-        #Searches the dataset for DJI RGB images
+        # Searches the dataset for DJI RGB images
         rgb_images = list(image_path.glob("*_D.JPG"))
 
         if not rgb_images:
-            raise FileNotFoundError(
-                f"No RGB images found in {image_path}"
-        )
+            raise FileNotFoundError(f"No RGB images found in {image_path}")
 
         return rgb_images
-    
 
     def _create_rgb_view(self, image_path, output_path, project_name):
         rgb_images = self._get_rgb_images(image_path)
 
-        #setting up and creating the directory for the rgb images 
-        rgb_directory = (
-            output_path
-            / ".rgb_temp"
-            / project_name
-            / "images"
-        )
+        # setting up and creating the directory for the rgb images
+        rgb_directory = output_path / ".rgb_temp" / project_name / "images"
 
         rgb_directory.mkdir(
             parents=True,
@@ -1505,6 +850,6 @@ class ODMApplication:
             target = rgb_directory / image.name
 
             if not target.exists():
-                target.hardlink_to(image) #points to the underlying file
+                target.hardlink_to(image)  # points to the underlying file
 
-        return rgb_directory 
+        return rgb_directory

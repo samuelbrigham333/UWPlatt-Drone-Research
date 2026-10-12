@@ -36,13 +36,7 @@ import numpy as np
 
 
 class RegionFeatureExtractor:
-
-    def __init__(
-        self,
-        labels,
-        pixel_area_m2=0.0025,
-        tile_number=None
-    ):
+    def __init__(self, labels, pixel_area_m2=0.0025, tile_number=None):
         """
         Parameters
         ----------
@@ -62,20 +56,15 @@ class RegionFeatureExtractor:
         """
 
         if labels is None:
-            raise ValueError(
-                "Labels cannot be None."
-            )
+            raise ValueError("Labels cannot be None.")
 
         if labels.ndim != 2:
             raise ValueError(
-                "Labels must be a 2D array. "
-                f"Received shape: {labels.shape}"
+                f"Labels must be a 2D array. Received shape: {labels.shape}"
             )
 
         if pixel_area_m2 <= 0:
-            raise ValueError(
-                "pixel_area_m2 must be greater than zero."
-            )
+            raise ValueError("pixel_area_m2 must be greater than zero.")
 
         self.labels = labels
         self.pixel_area_m2 = float(pixel_area_m2)
@@ -87,11 +76,7 @@ class RegionFeatureExtractor:
     # ADD FEATURE
     # ============================================================
 
-    def add_feature(
-        self,
-        name,
-        raster
-    ):
+    def add_feature(self, name, raster):
         """
         Add a feature raster.
 
@@ -100,9 +85,7 @@ class RegionFeatureExtractor:
         """
 
         if raster is None:
-            raise ValueError(
-                f"Feature '{name}' cannot be None."
-            )
+            raise ValueError(f"Feature '{name}' cannot be None.")
 
         if raster.shape != self.labels.shape:
             raise ValueError(
@@ -111,19 +94,13 @@ class RegionFeatureExtractor:
                 f"labels shape {self.labels.shape}."
             )
 
-        self.features[name] = np.asarray(
-            raster,
-            dtype=np.float32
-        )
+        self.features[name] = np.asarray(raster, dtype=np.float32)
 
     # ============================================================
     # ADD MULTIPLE FEATURES
     # ============================================================
 
-    def add_features(
-        self,
-        features
-    ):
+    def add_features(self, features):
         """
         Add multiple feature rasters.
 
@@ -144,11 +121,7 @@ class RegionFeatureExtractor:
             return
 
         for name, raster in features.items():
-
-            self.add_feature(
-                name,
-                raster
-            )
+            self.add_feature(name, raster)
 
     # ============================================================
     # EXTRACT FEATURES
@@ -170,16 +143,13 @@ class RegionFeatureExtractor:
         # FIND REGIONS
         # --------------------------------------------------------
 
-        region_ids = np.unique(
-            self.labels
-        )
+        region_ids = np.unique(self.labels)
 
         # --------------------------------------------------------
         # PROCESS EACH REGION
         # --------------------------------------------------------
 
         for region_id in region_ids:
-
             # Ignore negative labels.
             #
             # SLIC normally produces labels starting at 0,
@@ -188,13 +158,9 @@ class RegionFeatureExtractor:
             if region_id < 0:
                 continue
 
-            mask = (
-                self.labels == region_id
-            )
+            mask = self.labels == region_id
 
-            area_pixels = int(
-                np.count_nonzero(mask)
-            )
+            area_pixels = int(np.count_nonzero(mask))
 
             if area_pixels == 0:
                 continue
@@ -203,102 +169,64 @@ class RegionFeatureExtractor:
             # PHYSICAL AREA
             # ----------------------------------------------------
 
-            area_m2 = (
-                area_pixels *
-                self.pixel_area_m2
-            )
+            area_m2 = area_pixels * self.pixel_area_m2
 
             # ----------------------------------------------------
             # UNIQUE REGION ID
             # ----------------------------------------------------
 
             if self.tile_number is not None:
-
-                unique_id = (
-                    f"T{self.tile_number}_R{region_id}"
-                )
+                unique_id = f"T{self.tile_number}_R{region_id}"
 
             else:
-
-                unique_id = (
-                    f"R{region_id}"
-                )
+                unique_id = f"R{region_id}"
 
             # ----------------------------------------------------
             # BASE REGION INFORMATION
             # ----------------------------------------------------
 
             region = {
-
-                "area_pixels":
-                    area_pixels,
-
-                "area_m2":
-                    area_m2,
-
-                "region_id":
-                    unique_id
+                "area_pixels": area_pixels,
+                "area_m2": area_m2,
+                "region_id": unique_id,
             }
 
             if self.tile_number is not None:
-
-                region["tile"] = (
-                    self.tile_number
-                )
+                region["tile"] = self.tile_number
 
             # ----------------------------------------------------
             # FEATURE STATISTICS
             # ----------------------------------------------------
 
             for name, raster in self.features.items():
-
                 values = raster[mask]
 
                 # ------------------------------------------------
                 # ONLY USE FINITE VALUES
                 # ------------------------------------------------
 
-                valid = np.isfinite(
-                    values
-                )
+                valid = np.isfinite(values)
 
-                values = values[
-                    valid
-                ]
+                values = values[valid]
 
                 # ------------------------------------------------
                 # NO VALID DATA
                 # ------------------------------------------------
 
                 if values.size == 0:
+                    region[f"{name}_mean"] = np.nan
 
-                    region[
-                        f"{name}_mean"
-                    ] = np.nan
+                    region[f"{name}_median"] = np.nan
 
-                    region[
-                        f"{name}_median"
-                    ] = np.nan
+                    region[f"{name}_std"] = np.nan
 
-                    region[
-                        f"{name}_std"
-                    ] = np.nan
+                    region[f"{name}_min"] = np.nan
 
-                    region[
-                        f"{name}_min"
-                    ] = np.nan
+                    region[f"{name}_max"] = np.nan
 
-                    region[
-                        f"{name}_max"
-                    ] = np.nan
+                    region[f"{name}_p10"] = np.nan
 
-                    region[
-                        f"{name}_p10"
-                    ] = np.nan
-
-                    region[
-                        f"{name}_p90"
-                    ] = np.nan
+                    region[f"{name}_p90"] = np.nan
 
                     continue
 
@@ -306,55 +234,25 @@ class RegionFeatureExtractor:
                 # STATISTICS
                 # ------------------------------------------------
 
-                region[
-                    f"{name}_mean"
-                ] = float(
-                    np.mean(values)
-                )
+                region[f"{name}_mean"] = float(np.mean(values))
 
-                region[
-                    f"{name}_median"
-                ] = float(
-                    np.median(values)
-                )
+                region[f"{name}_median"] = float(np.median(values))
 
-                region[
-                    f"{name}_std"
-                ] = float(
-                    np.std(values)
-                )
+                region[f"{name}_std"] = float(np.std(values))
 
-                region[
-                    f"{name}_min"
-                ] = float(
-                    np.min(values)
-                )
+                region[f"{name}_min"] = float(np.min(values))
 
-                region[
-                    f"{name}_max"
-                ] = float(
-                    np.max(values)
-                )
+                region[f"{name}_max"] = float(np.max(values))
 
-                region[
-                    f"{name}_p10"
-                ] = float(
-                    np.percentile(values, 10)
-                )
+                region[f"{name}_p10"] = float(np.percentile(values, 10))
 
-                region[
-                    f"{name}_p90"
-                ] = float(
-                    np.percentile(values, 90)
-                )
+                region[f"{name}_p90"] = float(np.percentile(values, 90))
 
             # ----------------------------------------------------
             # STORE REGION
             # ----------------------------------------------------
 
-            results[
-                unique_id
-            ] = region
+            results[unique_id] = region
 
         return results
 
