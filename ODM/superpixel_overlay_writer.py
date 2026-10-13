@@ -1,3 +1,4 @@
+from pathlib import Path
 
 import numpy as np
 import rasterio
@@ -10,7 +11,8 @@ class SuperpixelOverlayWriter:
         output_path,
     ):
         self.ortho_path = ortho_path
-        self.output_path = output_path
+        self.output_path = Path(output_path)
+        self.output_path.mkdir(parents=True, exist_ok=True)
 
         self.output_directory.mkdir(parents=True, exist_ok=True)
 
@@ -69,3 +71,4 @@ class SuperpixelOverlayWriter:
 
     def close(self):
         self.labels.close()
+        self.ortho.close()
