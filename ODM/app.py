@@ -189,7 +189,8 @@ class ODMApplication:
 
         # Read orthomosaic metadata.
         print("\nReading orthomosaic information...")
-        metadata = self._read_raster_metadata(ortho_path)
+        loader = RasterLoader(ortho_path)
+        metadata = loader.get_metadata()
         width = metadata["width"]
         height = metadata["height"]
         band_count = metadata["count"]
@@ -245,7 +246,6 @@ class ODMApplication:
         print(f"\nEstimated total regions --> {estimated_regions:,}")
 
         pixel_area_m2 = pixel_width * pixel_height
-        loader = RasterLoader(ortho_path)
         all_regions = {}
         tile_number = 0
         id_offset = 0
@@ -289,6 +289,13 @@ class ODMApplication:
 
                         tile = loader.load_window(window)
 
+                        if not loader.tile_has_data(tile):
+                            print(
+                                f"\nTile {tile_number} contains no valid data. Skipping."
+                            )
+                            del tile  # skips only when all values are invalid
+                            continue
+
                         print("\n[1/3] Generating superpixels...")
                         segmenter = SuperpixelSegmenter(
                             num_segments=target_segments,
@@ -301,6 +308,9 @@ class ODMApplication:
                             tile_elapsed = time.time() - tile_start
                             print(f"\nTile {tile_number} skipped.")
                             print(f"Tile time: {tile_elapsed:.1f} seconds")
+                            print(
+                                "f\n Tile{tile_number} skipped: superpixel segmentation returned no labels :("
+                            )
                             del tile
                             del segmenter
                             continue
@@ -429,24 +439,6 @@ class ODMApplication:
         print("\n=== CSV Output ===")
         print(f"Region feature CSV --> {output_path}")
         print(f"Rows written --> {len(regions):,}")
-
-    # =========================================================
-    # RASTER METADATA
-    # =========================================================
-    @staticmethod
-    def _read_raster_metadata(ortho_path):
-        with rasterio.open(ortho_path) as src:
-            return {
-                "width": src.width,
-                "height": src.height,
-                "count": src.count,
-                "pixel_width": abs(src.transform.a),
-                "pixel_height": abs(src.transform.e),
-                "dtype": src.dtypes,
-                "nodata": src.nodata,
-                "crs": src.crs,
-                "transform": src.transform,
-            }
 
     # =========================================================
     # BAND DIAGNOSTICS
