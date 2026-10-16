@@ -20,8 +20,8 @@ class SuperpixelOverlayWriter:
 
         self.overlay_path = self.output_path / "superpixel_overlay.tif"
 
-        self.ortho = rasterio.open(self.ortho_path)     #opens the multispectral ortho  
-        self.rgb_ortho = rasterio.open(self.rgb_ortho_path)      #opens the rgb ortho
+        self.ortho = rasterio.open(self.ortho_path)  # opens the multispectral ortho
+        self.rgb_ortho = rasterio.open(self.rgb_ortho_path)  # opens the rgb ortho
 
         if (
             self.ortho.width != self.rgb_ortho.width
@@ -31,16 +31,10 @@ class SuperpixelOverlayWriter:
                 "Multispectral and RGB rasters must have matching dimensions."
             )
 
-        if (
-            self.ortho.crs != self.rgb_ortho.crs
-        ):
-            raise ValueError(
-                "Multispectral and RGB rasters must use the same CRS."
-            )
+        if self.ortho.crs != self.rgb_ortho.crs:
+            raise ValueError("Multispectral and RGB rasters must use the same CRS.")
 
-        if (
-            self.ortho.transform != self.rgb_ortho.transform
-        ):
+        if self.ortho.transform != self.rgb_ortho.transform:
             raise ValueError(
                 "Multispectral and RGB rasters must use the same Transform."
             )
@@ -53,18 +47,14 @@ class SuperpixelOverlayWriter:
             nodata=0,
         )
 
-        #create the overlay raster
+        # create the overlay raster
         self.overlay_profile = self.rgb_ortho.profile.copy()
         self.overlay_profile.update(
-            count = 3,
+            count=3,
         )
 
-        #open the overlay file
-        self.overlay = rasterio.open(
-            self.overlay_path,
-            "w",
-            **self.overlay_profile
-        )
+        # open the overlay file
+        self.overlay = rasterio.open(self.overlay_path, "w", **self.overlay_profile)
 
         self.labels = rasterio.open(
             self.labels_path,
@@ -106,24 +96,37 @@ class SuperpixelOverlayWriter:
         )
 
     def write_overlay(self, labels, window):
-        rgb = self.rgb_ortho.read(window = window) #grabs and reads rgb_ortho
+        rgb = self.rgb_ortho.read(window=window)  # grabs and reads rgb_ortho
 
-        #detects the boundaries between neighboring superpixels
+        # detects the boundaries between neighboring superpixels
         boundaries = np.zeros(labels.shape, dtype=bool)
 
         boundaries[:, 1:] |= labels[:, 1:] != labels[:, :-1]
-        boundaries[1:, :] |= labels[1:, :] != labels[:-1, :]    #compares each row with the row immediately above it
+        boundaries[1:, :] |= (
+            labels[1:, :] != labels[:-1, :]
+        )  # compares each row with the row immediately above it
 
-        #copy RGB pixels so we don't modify the source raster
+        valid = labels >= 0 
+
+        boundaries[:, 1:] |= (
+            (labels[:, 1:] != labels[:, :-1])
+            & valid[:, 1:]  # checks the pixels on the right
+            & valid[:, :-1]  # checks the pixels on the left
+        )
+        boundaries[1:, :] |= (
+            (labels[1:, :] != labels[:-1, :]) & valid[1:, :] & valid[:-1, :]
+        )
+
+        # copy RGB pixels so we don't modify the source raster
         overlay_pixels = rgb.copy()
 
-        #Paint boundaries "hot pink" (can be changed to be any color)
-        #NOTE: red would be 255 at the top, other values 0.
+        # Paint boundaries "hot pink" (can be changed to be any color)
+        # NOTE: red would be 255 at the top, other values 0.
         overlay_pixels[0, boundaries] = 255
         overlay_pixels[1, boundaries] = 105
         overlay_pixels[2, boundaries] = 180
 
-        self.overlay.write(overlay_pixels, window = window)
+        self.overlay.write(overlay_pixels, window=window)
 
     def close(self):
         self.labels.close()

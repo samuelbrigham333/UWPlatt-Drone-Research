@@ -43,8 +43,8 @@ class ODMApplication:
             selection = UserInterface.get_start_option()
             if selection == "1":
                 try:
-                    ortho_path = self.run_odm_pipeline()
-                    self.run_feature_pipeline(ortho_path)
+                    ortho_path, rgb_ortho_path = self.run_odm_pipeline()
+                    self.run_feature_pipeline(ortho_path, rgb_ortho_path)
                 except Exception as error:
                     print("\n========================================")
                     print("[ERROR]")
@@ -53,6 +53,7 @@ class ODMApplication:
             elif selection == "2":
                 try:
                     ortho_path = UserInterface.get_orthomosaic_path()
+                    rgb_ortho_path = UserInterface.get_rgb_orthomosaic_path()
                     self.run_feature_pipeline(ortho_path)
                 except Exception as error:
                     print("\n========================================")
@@ -114,9 +115,13 @@ class ODMApplication:
 
         project_path = output_path / project_name
         ortho_path = self._find_orthomosaic(project_path)
+
+        #locate the RGB orthomosaic
+        rgb_project_path = output_path / f"{project_name}_rgb"
+        rgb_ortho_path = self._find_orthomosaic(rgb_project_path)
         print("\n=== ODM Complete ===")
         print(f"Orthomosaic --> {ortho_path}")
-        return ortho_path
+        return ortho_path, rgb_ortho_path 
 
     # =========================================================
     # DOCKER MANAGEMENT
@@ -176,7 +181,7 @@ class ODMApplication:
     # =========================================================
     # FEATURE PIPELINE
     # =========================================================
-    def run_feature_pipeline(self, ortho_path):
+    def run_feature_pipeline(self, ortho_path, rgb_ortho_path):
         ortho_path = Path(ortho_path)
         if not ortho_path.exists():
             raise FileNotFoundError(f"\nOrthomosaic does not exist:\n{ortho_path}")
@@ -253,6 +258,7 @@ class ODMApplication:
         overlay_writer = SuperpixelOverlayWriter(
             ortho_path,
             output_directory,
+            rgb_ortho_path
         )
 
         try:
@@ -290,10 +296,8 @@ class ODMApplication:
                         tile = loader.load_window(window)
 
                         if not loader.tile_has_data(tile):
-                            print(
-                                f"\nTile {tile_number} contains no valid data. Skipping."
-                            )
-                            del tile  # skips only when all values are invalid
+                            print(f"\nTile {tile_number} contains no valid data. Skipping.")
+                            del tile        #skips only when all values are invalid
                             continue
 
                         print("\n[1/3] Generating superpixels...")
@@ -308,11 +312,9 @@ class ODMApplication:
                             tile_elapsed = time.time() - tile_start
                             print(f"\nTile {tile_number} skipped.")
                             print(f"Tile time: {tile_elapsed:.1f} seconds")
-                            print(
-                                "f\n Tile{tile_number} skipped: superpixel segmentation returned no labels :("
-                            )
+                            print("f\n Tile{tile_number} skipped: superpixel segmentation returned no labels :(")
                             del tile
-                            del segmenter
+                            del segmenter 
                             continue
 
                         valid_labels = labels[labels >= 0]
@@ -324,6 +326,10 @@ class ODMApplication:
                             labels,
                             window,
                             id_offset,
+                        )
+
+                        overlay_writer.write_overlay(
+                            labels, window
                         )
 
                         # Make the next tile's IDs unique.
