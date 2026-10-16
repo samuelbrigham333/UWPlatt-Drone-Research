@@ -22,6 +22,7 @@ import numpy as np
 import rasterio
 from rasterio.windows import Window
 
+from services.odm_processing_service import ODMProcessingService
 from ODM.command_builder import ODMCommandBuilder
 from ODM.docker_manager import DockerManager
 from ODM.raster.raster_loader import RasterLoader
@@ -37,13 +38,14 @@ from ODM.validate_images import validate_images
 class ODMApplication:
     def __init__(self):
         self.results = {}
+        self.odm_service = ODMProcessingService()
 
     def execute(self):
         while True:
             selection = UserInterface.get_start_option()
             if selection == "1":
                 try:
-                    ortho_path, rgb_ortho_path = self.run_odm_pipeline()
+                    ortho_path, rgb_ortho_path = self.odm_service.process_images()
                     self.run_feature_pipeline(ortho_path, rgb_ortho_path)
                 except Exception as error:
                     print("\n========================================")
@@ -63,120 +65,6 @@ class ODMApplication:
             elif selection == "3":
                 print("\nExiting...")
                 break
-
-    # =========================================================
-    # ODM PIPELINE
-    # =========================================================
-    def run_odm_pipeline(self):
-        print("\n=== ODM Processing ===")
-        self.ensure_docker_running()
-
-        config = UserInterface.get_odm_configuration()
-        image_path = Path(config["image_path"])
-        output_path = Path(config["output_path"])
-        project_name = config["project_name"]
-        options = config["pipeline_options"]
-
-        print("\n=== Image Validation ===")
-        print(f"Validating images in:\n{image_path}")
-        validate_images(image_path)
-        print("Metadata validation passed.")
-
-        print("\nBuilding ODM command...")
-        command_builder = ODMCommandBuilder(
-            image_path, output_path, project_name, options
-        )
-        command = command_builder.build_command()
-
-        print("\n=== ODM Command ===")
-        print(
-            " ".join(
-                f'"{argument}"' if " " in str(argument) else str(argument)
-                for argument in command
-            )
-        )
-
-        print("\n=== Running ODM ===")
-        runner = ODMRunner(command)
-        runner.run()
-
-        # Build and run the RGB-only ODM project using hard links.
-        rgb_directory = self._create_rgb_view(image_path, output_path, project_name)
-        rgb_command_builder = ODMCommandBuilder(
-            image_path,
-            output_path,
-            f"{project_name}_rgb",
-            options,
-            image_directory=rgb_directory,
-        )
-        rgb_command = rgb_command_builder.build_command()
-        rgb_runner = ODMRunner(rgb_command)
-        rgb_runner.run()
-
-        project_path = output_path / project_name
-        ortho_path = self._find_orthomosaic(project_path)
-
-        #locate the RGB orthomosaic
-        rgb_project_path = output_path / f"{project_name}_rgb"
-        rgb_ortho_path = self._find_orthomosaic(rgb_project_path)
-        print("\n=== ODM Complete ===")
-        print(f"Orthomosaic --> {ortho_path}")
-        return ortho_path, rgb_ortho_path 
-
-    # =========================================================
-    # DOCKER MANAGEMENT
-    # =========================================================
-    def ensure_docker_running(self):
-        print("\n=== Docker Check ===")
-        docker_manager = DockerManager()
-        if docker_manager.docker_running():
-            print("Docker is already running.")
-            return
-
-        print("Docker Desktop is not running.")
-        docker_manager.start_docker()
-        docker_ready = docker_manager.wait_for_docker(timeout=120)
-        if not docker_ready:
-            raise RuntimeError(
-                "\nDocker Desktop was started, but the Docker daemon "
-                "did not become ready within 120 seconds."
-            )
-        print("Docker Desktop is ready.")
-
-    # =========================================================
-    # FIND ORTHOMOSAIC
-    # =========================================================
-    @staticmethod
-    def _find_orthomosaic(project_path):
-        project_path = Path(project_path)
-        candidates = [
-            project_path / "odm_orthophoto" / "odm_orthophoto.tif",
-            project_path / "odm_orthophoto" / "odm_orthophoto.original.tif",
-            project_path / "odm_orthophoto" / "odm_orthophoto.original.jpg",
-            project_path / "odm_orthophoto" / "odm_orthophoto.rgb.tif",
-        ]
-        for candidate in candidates:
-            if candidate.exists():
-                return candidate
-
-        tif_files = list(project_path.rglob("*.tif"))
-        if tif_files:
-            for tif in tif_files:
-                if "orthophoto" in tif.name.lower():
-                    return tif
-            return tif_files[0]
-
-        jpg_files = list(project_path.rglob("*.jpg"))
-        if jpg_files:
-            for jpg in jpg_files:
-                if "orthophoto" in jpg.name.lower():
-                    return jpg
-            return jpg_files[0]
-
-        raise FileNotFoundError(
-            "\nODM completed, but an orthomosaic could not be found.\n\n"
-            f"Project path:\n{project_path}"
-        )
 
     # =========================================================
     # FEATURE PIPELINE
@@ -509,21 +397,3 @@ class ODMApplication:
                 else:
                     print(f"  {name}: {value}")
 
-    # =========================================================
-    # RGB IMAGE VIEW
-    # =========================================================
-    def _get_rgb_images(self, image_path):
-        rgb_images = list(Path(image_path).glob("*_D.JPG"))
-        if not rgb_images:
-            raise FileNotFoundError(f"No RGB images found in {image_path}")
-        return rgb_images
-
-    def _create_rgb_view(self, image_path, output_path, project_name):
-        rgb_images = self._get_rgb_images(image_path)
-        rgb_directory = Path(output_path) / ".rgb_temp" / project_name / "images"
-        rgb_directory.mkdir(parents=True, exist_ok=True)
-        for image in rgb_images:
-            target = rgb_directory / image.name
-            if not target.exists():
-                target.hardlink_to(image)
-        return rgb_directory
