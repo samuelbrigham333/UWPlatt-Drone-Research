@@ -22,28 +22,26 @@ import numpy as np
 import rasterio
 from rasterio.windows import Window
 
-from ODM.command_builder import ODMCommandBuilder
-from ODM.docker_manager import DockerManager
 from ODM.raster.raster_loader import RasterLoader
-from ODM.raster.vegetation_indices import VegetationIndices
+from ODM.vegetation_indices import VegetationIndices
 from ODM.region_feature_extractor import RegionFeatureExtractor
-from ODM.runner import ODMRunner
 from ODM.superpixel_overlay_writer import SuperpixelOverlayWriter
 from ODM.superpixel_segmenter import SuperpixelSegmenter
 from ODM.ui import UserInterface
-from ODM.validate_images import validate_images
+from services.odm_processing_service import ODMProcessingService
 
 
 class ODMApplication:
     def __init__(self):
         self.results = {}
+        self.odm_service = ODMProcessingService()
 
     def execute(self):
         while True:
             selection = UserInterface.get_start_option()
             if selection == "1":
                 try:
-                    ortho_path, rgb_ortho_path = self.run_odm_pipeline()
+                    ortho_path, rgb_ortho_path = self.odm_service.process_images()
                     self.run_feature_pipeline(ortho_path, rgb_ortho_path)
                 except Exception as error:
                     print("\n========================================")
@@ -54,7 +52,7 @@ class ODMApplication:
                 try:
                     ortho_path = UserInterface.get_orthomosaic_path()
                     rgb_ortho_path = UserInterface.get_rgb_orthomosaic_path()
-                    self.run_feature_pipeline(ortho_path)
+                    self.run_feature_pipeline(ortho_path, rgb_ortho_path)
                 except Exception as error:
                     print("\n========================================")
                     print("[ERROR]")
@@ -63,120 +61,6 @@ class ODMApplication:
             elif selection == "3":
                 print("\nExiting...")
                 break
-
-    # =========================================================
-    # ODM PIPELINE
-    # =========================================================
-    def run_odm_pipeline(self):
-        print("\n=== ODM Processing ===")
-        self.ensure_docker_running()
-
-        config = UserInterface.get_odm_configuration()
-        image_path = Path(config["image_path"])
-        output_path = Path(config["output_path"])
-        project_name = config["project_name"]
-        options = config["pipeline_options"]
-
-        print("\n=== Image Validation ===")
-        print(f"Validating images in:\n{image_path}")
-        validate_images(image_path)
-        print("Metadata validation passed.")
-
-        print("\nBuilding ODM command...")
-        command_builder = ODMCommandBuilder(
-            image_path, output_path, project_name, options
-        )
-        command = command_builder.build_command()
-
-        print("\n=== ODM Command ===")
-        print(
-            " ".join(
-                f'"{argument}"' if " " in str(argument) else str(argument)
-                for argument in command
-            )
-        )
-
-        print("\n=== Running ODM ===")
-        runner = ODMRunner(command)
-        runner.run()
-
-        # Build and run the RGB-only ODM project using hard links.
-        rgb_directory = self._create_rgb_view(image_path, output_path, project_name)
-        rgb_command_builder = ODMCommandBuilder(
-            image_path,
-            output_path,
-            f"{project_name}_rgb",
-            options,
-            image_directory=rgb_directory,
-        )
-        rgb_command = rgb_command_builder.build_command()
-        rgb_runner = ODMRunner(rgb_command)
-        rgb_runner.run()
-
-        project_path = output_path / project_name
-        ortho_path = self._find_orthomosaic(project_path)
-
-        #locate the RGB orthomosaic
-        rgb_project_path = output_path / f"{project_name}_rgb"
-        rgb_ortho_path = self._find_orthomosaic(rgb_project_path)
-        print("\n=== ODM Complete ===")
-        print(f"Orthomosaic --> {ortho_path}")
-        return ortho_path, rgb_ortho_path 
-
-    # =========================================================
-    # DOCKER MANAGEMENT
-    # =========================================================
-    def ensure_docker_running(self):
-        print("\n=== Docker Check ===")
-        docker_manager = DockerManager()
-        if docker_manager.docker_running():
-            print("Docker is already running.")
-            return
-
-        print("Docker Desktop is not running.")
-        docker_manager.start_docker()
-        docker_ready = docker_manager.wait_for_docker(timeout=120)
-        if not docker_ready:
-            raise RuntimeError(
-                "\nDocker Desktop was started, but the Docker daemon "
-                "did not become ready within 120 seconds."
-            )
-        print("Docker Desktop is ready.")
-
-    # =========================================================
-    # FIND ORTHOMOSAIC
-    # =========================================================
-    @staticmethod
-    def _find_orthomosaic(project_path):
-        project_path = Path(project_path)
-        candidates = [
-            project_path / "odm_orthophoto" / "odm_orthophoto.tif",
-            project_path / "odm_orthophoto" / "odm_orthophoto.original.tif",
-            project_path / "odm_orthophoto" / "odm_orthophoto.original.jpg",
-            project_path / "odm_orthophoto" / "odm_orthophoto.rgb.tif",
-        ]
-        for candidate in candidates:
-            if candidate.exists():
-                return candidate
-
-        tif_files = list(project_path.rglob("*.tif"))
-        if tif_files:
-            for tif in tif_files:
-                if "orthophoto" in tif.name.lower():
-                    return tif
-            return tif_files[0]
-
-        jpg_files = list(project_path.rglob("*.jpg"))
-        if jpg_files:
-            for jpg in jpg_files:
-                if "orthophoto" in jpg.name.lower():
-                    return jpg
-            return jpg_files[0]
-
-        raise FileNotFoundError(
-            "\nODM completed, but an orthomosaic could not be found.\n\n"
-            f"Project path:\n{project_path}"
-        )
 
     # =========================================================
     # FEATURE PIPELINE
@@ -256,9 +140,7 @@ class ODMApplication:
         id_offset = 0
 
         overlay_writer = SuperpixelOverlayWriter(
-            ortho_path,
-            output_directory,
-            rgb_ortho_path
+            ortho_path, output_directory, rgb_ortho_path
         )
 
         try:
@@ -296,25 +178,38 @@ class ODMApplication:
                         tile = loader.load_window(window)
 
                         if not loader.tile_has_data(tile):
-                            print(f"\nTile {tile_number} contains no valid data. Skipping.")
-                            del tile        #skips only when all values are invalid
+                            print(
+                                f"\nTile {tile_number} contains no valid data. Skipping."
+                            )
+                            del tile  # skips only when all values are invalid
                             continue
 
-                        print("\n[1/3] Generating superpixels...")
+                        print("\n[1/3] Calculating vegetation indices...")
+                        vegetation = VegetationIndices(tile)
+                        index_rasters = vegetation.calculate_all()
+                        for name in index_rasters:
+                            print(f"      {name:<12} ✓")
+
+                        print(
+                            "\n[2/3] Generating superpixels from vegetation indices..."
+                        )
                         segmenter = SuperpixelSegmenter(
                             num_segments=target_segments,
                             compactness=compactness,
                             sigma=sigma,
                         )
-                        labels = segmenter.run(tile)
+                        labels = segmenter.run(tile, index_rasters=index_rasters)
 
                         if labels is None:
                             tile_elapsed = time.time() - tile_start
                             print(f"\nTile {tile_number} skipped.")
                             print(f"Tile time: {tile_elapsed:.1f} seconds")
-                            print("f\n Tile{tile_number} skipped: superpixel segmentation returned no labels :(")
+                            print(
+                                f"\nTile {tile_number} skipped: "
+                                "superpixel segmentation returned no labels :("
+                            )
                             del tile
-                            del segmenter 
+                            del segmenter
                             continue
 
                         valid_labels = labels[labels >= 0]
@@ -328,32 +223,14 @@ class ODMApplication:
                             id_offset,
                         )
 
-                        overlay_writer.write_overlay(
-                            labels, window
-                        )
+                        overlay_writer.write_overlay(labels, window)
 
                         # Make the next tile's IDs unique.
                         if valid_labels.size:
                             id_offset += int(valid_labels.max()) + 1
 
-                        print("\n[2/3] Calculating vegetation indices...")
-                        vegetation = VegetationIndices(tile)
-                        ndvi = vegetation.ndvi()
-                        print("      NDVI      ✓")
-                        gndvi = vegetation.gndvi()
-                        print("      GNDVI     ✓")
-                        ndre = vegetation.ndre()
-                        print("      NDRE      ✓")
-                        ci_red_edge = vegetation.ci_red_edge()
-                        print("      CI-RE     ✓")
-                        evenson = vegetation.evenson()
-                        print("      Evenson   ✓")
-
-                        self._print_feature_diagnostic("NDVI", ndvi)
-                        self._print_feature_diagnostic("GNDVI", gndvi)
-                        self._print_feature_diagnostic("NDRE", ndre)
-                        self._print_feature_diagnostic("CI_RedEdge", ci_red_edge)
-                        self._print_feature_diagnostic("Evenson", evenson)
+                        for name, raster in index_rasters.items():
+                            self._print_feature_diagnostic(name, raster)
 
                         print("\n[3/3] Extracting region statistics...")
                         extractor = RegionFeatureExtractor(
@@ -365,11 +242,7 @@ class ODMApplication:
                         extractor.add_feature("Green", tile[1])
                         extractor.add_feature("NIR", tile[2])
                         extractor.add_feature("Red Edge", tile[3])
-                        extractor.add_feature("NDVI", ndvi)
-                        extractor.add_feature("GNDVI", gndvi)
-                        extractor.add_feature("NDRE", ndre)
-                        extractor.add_feature("CI_RedEdge", ci_red_edge)
-                        extractor.add_feature("Evenson", evenson)
+                        extractor.add_features(index_rasters)
                         regions = extractor.get_features()
                         print(f"      Regions extracted: {len(regions):,}")
                         all_regions.update(regions)
@@ -377,11 +250,7 @@ class ODMApplication:
                         del tile
                         del labels
                         del valid_labels
-                        del ndvi
-                        del gndvi
-                        del ndre
-                        del ci_red_edge
-                        del evenson
+                        del index_rasters
                         del vegetation
                         del extractor
                         del segmenter
@@ -395,8 +264,23 @@ class ODMApplication:
                             f"{tile_number} / {total_tiles} "
                             f"({completed_percent:.1f}%)"
                         )
+
         finally:
             overlay_writer.close()
+
+        # Export a JPEG preview after closing the overlay GeoTIFF.
+        jpg_path = output_directory / "superpixel_overlay.jpg"
+
+        SuperpixelOverlayWriter.save_overlay_jpg(
+            output_directory / "superpixel_overlay.tif",
+            jpg_path,
+        )
+
+        print(
+            "Superpixel overlay GeoTIFF --> "
+            f"{output_directory / 'superpixel_overlay.tif'}"
+        )
+        print(f"Superpixel overlay JPEG --> {jpg_path}")
 
         print("\n=== Feature Pipeline Complete ===")
         print(f"Total regions extracted --> {len(all_regions):,}")
@@ -508,22 +392,3 @@ class ODMApplication:
                         print(f"  {name}: {value:.6f}")
                 else:
                     print(f"  {name}: {value}")
-
-    # =========================================================
-    # RGB IMAGE VIEW
-    # =========================================================
-    def _get_rgb_images(self, image_path):
-        rgb_images = list(Path(image_path).glob("*_D.JPG"))
-        if not rgb_images:
-            raise FileNotFoundError(f"No RGB images found in {image_path}")
-        return rgb_images
-
-    def _create_rgb_view(self, image_path, output_path, project_name):
-        rgb_images = self._get_rgb_images(image_path)
-        rgb_directory = Path(output_path) / ".rgb_temp" / project_name / "images"
-        rgb_directory.mkdir(parents=True, exist_ok=True)
-        for image in rgb_images:
-            target = rgb_directory / image.name
-            if not target.exists():
-                target.hardlink_to(image)
-        return rgb_directory
