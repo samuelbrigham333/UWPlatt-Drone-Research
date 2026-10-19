@@ -77,22 +77,44 @@ class UserInterface:
         }
 
     # ==========================================================
-    # FEATURE EXTRACTION
+    # FEATURE EXTRACTION AND SUPERPIXEL GENERATION
     # ==========================================================
 
     @staticmethod
     def get_orthomosaic_path():
 
-        print("\n=== Feature Extraction ===")
+        print("\n=== Feature Extraction & Superpixel Generation ===")
 
         while True:
-            path = Path(input("Orthomosaic (.tif) --> ").strip()).expanduser().resolve()
+            path = (
+                Path(input("MultiSpectral Orthomosaic (.tif) --> ").strip())
+                .expanduser()
+                .resolve()
+            )
 
             if not path.exists():
                 print("File does not exist.\n")
                 continue
 
             if path.suffix.lower() not in (".tif", ".tiff"):
+                print("Must be a TIFF file.\n")
+                continue
+
+            return path
+
+    def get_rgb_orthomosaic_path():
+        while True:
+            path = (
+                Path(input("RGB Orthomosaic (.tif) --> ").strip())
+                .expanduser()
+                .resolve()
+            )
+
+            if not path.exists():
+                print("File does not exist.\n")
+                continue
+
+            if path.suffix.lower() not in (".tiff", ".tif"):
                 print("Must be a TIFF file.\n")
                 continue
 
