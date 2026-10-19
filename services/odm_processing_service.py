@@ -18,7 +18,6 @@ from ODM.runner import ODMRunner
 from ODM.ui import UserInterface
 from ODM.validate_images import validate_images
 
-
 class ODMProcessingService:
     def __init__(self, docker_manager=None, runner_class=ODMRunner):
         # Dependencies can be replaced during testing.
