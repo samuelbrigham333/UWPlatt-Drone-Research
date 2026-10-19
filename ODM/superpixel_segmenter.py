@@ -12,15 +12,17 @@ Expected tile shape:
 
 For multispectral imagery:
 
-    Band 0 = Blue
+    Band 0 = Red
     Band 1 = Green
-    Band 2 = Red
+    Band 2 = NIR
     Band 3 = Red Edge
-    Band 4 = NIR
+    Band 4 = Alpha / mask (optional index input)
 """
 
 import numpy as np
 from skimage.segmentation import slic
+
+from ODM.vegetation_indices import VegetationIndices
 
 
 class SuperpixelSegmenter:
@@ -45,7 +47,7 @@ class SuperpixelSegmenter:
     # RUN SLIC
     # ------------------------------------------------------
 
-    def run(self, tile):
+    def run(self, tile, index_rasters=None):
 
         if tile is None:
             raise ValueError("Tile cannot be None.")
@@ -63,10 +65,34 @@ class SuperpixelSegmenter:
             return None
 
         # --------------------------------------------------
-        # VALID PIXEL MASK
+        # PREPARE VEGETATION-INDEX IMAGE FOR SLIC
         # --------------------------------------------------
 
-        valid_mask = np.any(np.isfinite(tile) & (tile != 0), axis=0)
+        if index_rasters is None:
+            index_rasters = VegetationIndices(tile).calculate_all()
+
+        if not index_rasters:
+            raise ValueError("At least one vegetation-index raster is required.")
+
+        index_names = tuple(index_rasters)
+        index_arrays = []
+        for name in index_names:
+            index_array = np.asarray(index_rasters[name], dtype=np.float32)
+            if index_array.shape != (height, width):
+                raise ValueError(
+                    f"Index '{name}' has shape {index_array.shape}; "
+                    f"expected {(height, width)}."
+                )
+            index_arrays.append(index_array)
+
+        index_image = np.stack(index_arrays, axis=-1)
+
+        # The four reflectance bands are required to calculate the indices.
+        valid_mask = np.all(np.isfinite(tile[:4]), axis=0)
+
+        # The fifth band is the orthomosaic alpha/mask band when present.
+        if _bands >= 5:
+            valid_mask &= np.isfinite(tile[4]) & (tile[4] > 0)
 
         if not np.any(valid_mask):
             print("    Tile contains no data.")
@@ -77,28 +103,7 @@ class SuperpixelSegmenter:
         # PREPARE IMAGE FOR SLIC
         # --------------------------------------------------
 
-        # SLIC expects:
-        #
-        # height × width × channels
-        #
-        image = np.moveaxis(tile, 0, -1).astype(np.float32, copy=False)
-
-        # --------------------------------------------------
-        # REMOVE NaN / INF
-        # --------------------------------------------------
-
-        image = np.nan_to_num(image, nan=0.0, posinf=0.0, neginf=0.0)
-
-        # --------------------------------------------------
-        # NORMALIZE CHANNELS INDEPENDENTLY
-        #
-        # This is important for multispectral imagery.
-        #
-        # We do NOT want NIR or Red Edge to dominate SLIC
-        # simply because its numerical range differs.
-        # --------------------------------------------------
-
-        image = self._normalize_channels(image, valid_mask)
+        image = self._normalize_channels(index_image, valid_mask)
 
         # --------------------------------------------------
         # ACTUAL NUMBER OF SEGMENTS
@@ -163,9 +168,8 @@ class SuperpixelSegmenter:
         for channel in range(channels):
             values = image[:, :, channel]
 
-            valid_values = values[valid_mask]
-
-            valid_values = valid_values[np.isfinite(valid_values)]
+            finite_mask = valid_mask & np.isfinite(values)
+            valid_values = values[finite_mask]
 
             if valid_values.size == 0:
                 continue
@@ -179,6 +183,9 @@ class SuperpixelSegmenter:
 
                 continue
 
-            normalized[:, :, channel] = (values - minimum) / (maximum - minimum)
+            normalized_channel = normalized[:, :, channel]
+            normalized_channel[finite_mask] = (values[finite_mask] - minimum) / (
+                maximum - minimum
+            )
 
         return normalized
