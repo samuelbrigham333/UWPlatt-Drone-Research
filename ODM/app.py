@@ -22,17 +22,13 @@ import numpy as np
 import rasterio
 from rasterio.windows import Window
 
-from services.odm_processing_service import ODMProcessingService
-from ODM.command_builder import ODMCommandBuilder
-from ODM.docker_manager import DockerManager
 from ODM.raster.raster_loader import RasterLoader
-from ODM.raster.vegetation_indices import VegetationIndices
+from ODM.vegetation_indices import VegetationIndices
 from ODM.region_feature_extractor import RegionFeatureExtractor
-from ODM.runner import ODMRunner
 from ODM.superpixel_overlay_writer import SuperpixelOverlayWriter
 from ODM.superpixel_segmenter import SuperpixelSegmenter
 from ODM.ui import UserInterface
-from ODM.validate_images import validate_images
+from services.odm_processing_service import ODMProcessingService
 
 
 class ODMApplication:
@@ -56,7 +52,7 @@ class ODMApplication:
                 try:
                     ortho_path = UserInterface.get_orthomosaic_path()
                     rgb_ortho_path = UserInterface.get_rgb_orthomosaic_path()
-                    self.run_feature_pipeline(ortho_path)
+                    self.run_feature_pipeline(ortho_path, rgb_ortho_path)
                 except Exception as error:
                     print("\n========================================")
                     print("[ERROR]")
@@ -144,9 +140,7 @@ class ODMApplication:
         id_offset = 0
 
         overlay_writer = SuperpixelOverlayWriter(
-            ortho_path,
-            output_directory,
-            rgb_ortho_path
+            ortho_path, output_directory, rgb_ortho_path
         )
 
         try:
@@ -184,25 +178,38 @@ class ODMApplication:
                         tile = loader.load_window(window)
 
                         if not loader.tile_has_data(tile):
-                            print(f"\nTile {tile_number} contains no valid data. Skipping.")
-                            del tile        #skips only when all values are invalid
+                            print(
+                                f"\nTile {tile_number} contains no valid data. Skipping."
+                            )
+                            del tile  # skips only when all values are invalid
                             continue
 
-                        print("\n[1/3] Generating superpixels...")
+                        print("\n[1/3] Calculating vegetation indices...")
+                        vegetation = VegetationIndices(tile)
+                        index_rasters = vegetation.calculate_all()
+                        for name in index_rasters:
+                            print(f"      {name:<12} ✓")
+
+                        print(
+                            "\n[2/3] Generating superpixels from vegetation indices..."
+                        )
                         segmenter = SuperpixelSegmenter(
                             num_segments=target_segments,
                             compactness=compactness,
                             sigma=sigma,
                         )
-                        labels = segmenter.run(tile)
+                        labels = segmenter.run(tile, index_rasters=index_rasters)
 
                         if labels is None:
                             tile_elapsed = time.time() - tile_start
                             print(f"\nTile {tile_number} skipped.")
                             print(f"Tile time: {tile_elapsed:.1f} seconds")
-                            print("f\n Tile{tile_number} skipped: superpixel segmentation returned no labels :(")
+                            print(
+                                f"\nTile {tile_number} skipped: "
+                                "superpixel segmentation returned no labels :("
+                            )
                             del tile
-                            del segmenter 
+                            del segmenter
                             continue
 
                         valid_labels = labels[labels >= 0]
@@ -216,32 +223,14 @@ class ODMApplication:
                             id_offset,
                         )
 
-                        overlay_writer.write_overlay(
-                            labels, window
-                        )
+                        overlay_writer.write_overlay(labels, window)
 
                         # Make the next tile's IDs unique.
                         if valid_labels.size:
                             id_offset += int(valid_labels.max()) + 1
 
-                        print("\n[2/3] Calculating vegetation indices...")
-                        vegetation = VegetationIndices(tile)
-                        ndvi = vegetation.ndvi()
-                        print("      NDVI      ✓")
-                        gndvi = vegetation.gndvi()
-                        print("      GNDVI     ✓")
-                        ndre = vegetation.ndre()
-                        print("      NDRE      ✓")
-                        ci_red_edge = vegetation.ci_red_edge()
-                        print("      CI-RE     ✓")
-                        evenson = vegetation.evenson()
-                        print("      Evenson   ✓")
-
-                        self._print_feature_diagnostic("NDVI", ndvi)
-                        self._print_feature_diagnostic("GNDVI", gndvi)
-                        self._print_feature_diagnostic("NDRE", ndre)
-                        self._print_feature_diagnostic("CI_RedEdge", ci_red_edge)
-                        self._print_feature_diagnostic("Evenson", evenson)
+                        for name, raster in index_rasters.items():
+                            self._print_feature_diagnostic(name, raster)
 
                         print("\n[3/3] Extracting region statistics...")
                         extractor = RegionFeatureExtractor(
@@ -253,11 +242,7 @@ class ODMApplication:
                         extractor.add_feature("Green", tile[1])
                         extractor.add_feature("NIR", tile[2])
                         extractor.add_feature("Red Edge", tile[3])
-                        extractor.add_feature("NDVI", ndvi)
-                        extractor.add_feature("GNDVI", gndvi)
-                        extractor.add_feature("NDRE", ndre)
-                        extractor.add_feature("CI_RedEdge", ci_red_edge)
-                        extractor.add_feature("Evenson", evenson)
+                        extractor.add_features(index_rasters)
                         regions = extractor.get_features()
                         print(f"      Regions extracted: {len(regions):,}")
                         all_regions.update(regions)
@@ -265,11 +250,7 @@ class ODMApplication:
                         del tile
                         del labels
                         del valid_labels
-                        del ndvi
-                        del gndvi
-                        del ndre
-                        del ci_red_edge
-                        del evenson
+                        del index_rasters
                         del vegetation
                         del extractor
                         del segmenter
@@ -283,8 +264,23 @@ class ODMApplication:
                             f"{tile_number} / {total_tiles} "
                             f"({completed_percent:.1f}%)"
                         )
+
         finally:
             overlay_writer.close()
+
+        # Export a JPEG preview after closing the overlay GeoTIFF.
+        jpg_path = output_directory / "superpixel_overlay.jpg"
+
+        SuperpixelOverlayWriter.save_overlay_jpg(
+            output_directory / "superpixel_overlay.tif",
+            jpg_path,
+        )
+
+        print(
+            "Superpixel overlay GeoTIFF --> "
+            f"{output_directory / 'superpixel_overlay.tif'}"
+        )
+        print(f"Superpixel overlay JPEG --> {jpg_path}")
 
         print("\n=== Feature Pipeline Complete ===")
         print(f"Total regions extracted --> {len(all_regions):,}")
@@ -396,4 +392,3 @@ class ODMApplication:
                         print(f"  {name}: {value:.6f}")
                 else:
                     print(f"  {name}: {value}")
-

@@ -69,9 +69,7 @@ class ODMProcessingService:
             image_directory=rgb_directory,
         )
 
-        rgb_ortho_path = self._find_orthomosaic(
-            output_path / rgb_project_name
-        )
+        rgb_ortho_path = self._find_orthomosaic(output_path / rgb_project_name)
 
         print("\n=== ODM Complete ===")
         print(f"Orthomosaic --> {ortho_path}")
@@ -91,9 +89,7 @@ class ODMProcessingService:
         print("Docker Desktop is not running.")
         self.docker_manager.start_docker()
 
-        docker_ready = self.docker_manager.wait_for_docker(
-            timeout=120
-        )
+        docker_ready = self.docker_manager.wait_for_docker(timeout=120)
 
         if not docker_ready:
             raise RuntimeError(
@@ -126,9 +122,7 @@ class ODMProcessingService:
         print(f"\n=== ODM Command: {project_name} ===")
         print(
             " ".join(
-                f'"{argument}"'
-                if " " in str(argument)
-                else str(argument)
+                f'"{argument}"' if " " in str(argument) else str(argument)
                 for argument in command
             )
         )
@@ -180,9 +174,7 @@ class ODMProcessingService:
         rgb_images = list(Path(image_path).glob("*_D.JPG"))
 
         if not rgb_images:
-            raise FileNotFoundError(
-                f"No RGB images found in {image_path}"
-            )
+            raise FileNotFoundError(f"No RGB images found in {image_path}")
 
         return rgb_images
 
@@ -191,12 +183,7 @@ class ODMProcessingService:
 
         rgb_images = self._get_rgb_images(image_path)
 
-        rgb_directory = (
-            Path(output_path)
-            / ".rgb_temp"
-            / project_name
-            / "images"
-        )
+        rgb_directory = Path(output_path) / ".rgb_temp" / project_name / "images"
         rgb_directory.mkdir(parents=True, exist_ok=True)
 
         for image in rgb_images:

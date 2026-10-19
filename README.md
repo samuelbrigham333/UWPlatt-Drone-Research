@@ -18,9 +18,9 @@ Locate the generated multispectral orthomosaic.
 
 Tile the orthomosaic to reduce memory usage.
 
-Segment each tile with SLIC superpixels.
+Calculate vegetation indices for each tile.
 
-Calculate vegetation indices.
+Segment each tile with SLIC superpixels using those index rasters.
 
 Extract statistics for each superpixel.
 
@@ -148,7 +148,10 @@ This helps control memory usage when processing large orthomosaics.
 
 5. Superpixel Segmentation
 
-SLIC is used to divide each tile into visually/spectrally similar regions.
+SLIC is used to divide each tile into regions with similar vegetation-index
+values. NDVI, GNDVI, NDRE, CI Red Edge, and Evenson are calculated for each tile,
+normalized independently, and used as SLIC's input channels. The same index
+rasters are then used to calculate per-region statistics.
 
 The user can configure:
 
