@@ -1,9 +1,4 @@
-"""
-ODM command construction module.
-
-Builds the Docker command used to execute the ODM
-processing pipeline all based on user-provided input and processing options
-"""
+from pathlib import Path
 
 
 class ODMCommandBuilder:
@@ -15,23 +10,26 @@ class ODMCommandBuilder:
         options,
         image_directory=None,
     ):
-        self.image_path = image_path
-        self.image_directory = image_directory
-        self.output_path = output_path
+        self.image_path = Path(image_path).expanduser().resolve()
+        self.image_directory = (
+            Path(image_directory).expanduser().resolve()
+            if image_directory is not None else None
+        )
+        self.output_path = Path(output_path).expanduser().resolve()
         self.project_name = project_name
         self.options = options
 
     def build_command(self):
+        images = self.image_directory or self.image_path
+
         return [
             "docker",
             "run",
             "--rm",
-            # ODM outputs
             "-v",
             f"{self.output_path}:/datasets",
-            # OG Images
             "-v",
-            f"{self.image_directory or self.image_path}:/datasets/{self.project_name}/images",
+            f"{images}:/datasets/{self.project_name}/images",
             "opendronemap/odm:3.6.1",
             "--project-path",
             "/datasets",

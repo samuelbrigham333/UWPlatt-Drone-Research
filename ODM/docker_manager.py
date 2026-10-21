@@ -63,3 +63,15 @@ class DockerManager:
             raise RuntimeError(f"Unsupported operating system: {system}")
 
     # waits for docker
+        # waits for docker to finish starting
+    def wait_for_docker(self, timeout=120):
+        start_time = time.monotonic()
+
+        while time.monotonic() - start_time < timeout:
+            if self.docker_running():
+                print("Docker is ready.")
+                return True
+
+            time.sleep(2)
+
+        return False
