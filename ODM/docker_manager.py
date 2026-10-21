@@ -32,4 +32,4 @@ class DockerManager:
 
         print("Starting Docker Desktop...")
 
-        subprocess.Popen(r"C:\Program Files\Docker\Docker\Docker Desktop.exe")
+        subprocess.Popen(r"/Applications/Docker.app")
