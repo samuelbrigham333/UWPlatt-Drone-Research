@@ -6,6 +6,9 @@ and available before executing the ODM pipeline
 """
 
 import subprocess
+import platform
+import time
+import shutil
 
 
 class DockerManager:
@@ -15,21 +18,48 @@ class DockerManager:
         try:
             # tests the docker daemon
             result = subprocess.run(
-                # execution command
                 ["docker", "info"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                timeout=10
             )
 
             # Returns true if the command succeeded
             return result.returncode == 0
 
-        except FileNotFoundError:
+        except (FileNotFoundError, subprocess.TimeoutExpired):
             return False
 
     # starts docker
     def start_docker(self):
 
+        if self.docker_running():
+            print("Docker is already running.")
+            return
+
         print("Starting Docker Desktop...")
 
-        subprocess.Popen(r"/Applications/Docker.app")
+        system = platform.system()
+
+        if system == "Windows":
+            # Start Docker Desktop using its CLI
+            if shutil.which("docker") is None:
+                raise RuntimeError("Docker CLI is not installed or not in PATH.")
+
+            subprocess.run(
+                ["docker", "desktop", "start", "--detach"],
+                check=True,
+                timeout=30
+            )
+
+        elif system == "Darwin":
+            # Start Docker Desktop on macOS
+            subprocess.run(
+                ["open", "-a", "Docker"],
+                check=True
+            )
+
+        else:
+            raise RuntimeError(f"Unsupported operating system: {system}")
+
+    # waits for docker
