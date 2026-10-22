@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+
+# Python tooling and build output
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Python virtual environments
+.venv/
+venv/
+
+# Local environment and logs
+.env
+.env.*
+!.env.example
+*.log
+
+# IDE settings
+.idea/
+.vscode/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
