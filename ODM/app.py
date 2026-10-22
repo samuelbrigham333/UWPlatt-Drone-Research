@@ -49,7 +49,7 @@ from rasterio.windows import Window
 
 from ODM.raster.raster_loader import RasterLoader
 
-from ODM.vegetation_indices import VegetationIndices
+from ODM.raster.vegetation_indices import VegetationIndices
 
 from ODM.region_feature_extractor import RegionFeatureExtractor
 
