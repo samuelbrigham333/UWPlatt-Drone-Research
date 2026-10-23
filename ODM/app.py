@@ -24,8 +24,10 @@ from ODM.region_feature_extractor import RegionFeatureExtractor
 from ODM.superpixel_overlay_writer import SuperpixelOverlayWriter
 from ODM.ui import UserInterface
 from ODM.tile_processor import TileProcessor
+from ODM.feature_inspector import FeatureInspector
 from services.odm_processing_service import ODMProcessingService
 from services.region_csv_exporter import RegionCSVExporter
+
 
 class ODMApplication:
     def __init__(self):
@@ -199,7 +201,7 @@ class ODMApplication:
                         if valid_labels.size:
                             id_offset += int(valid_labels.max()) + 1
                         for name, raster in index_rasters.items():
-                            self._print_feature_diagnostic(name, raster)
+                            FeatureInspector.print_feature_diagnostic(name, raster)
                         print("\n[3/3] Extracting region statistics...")
                         extractor = RegionFeatureExtractor(
                             labels=labels,
@@ -294,25 +296,6 @@ class ODMApplication:
                 f"mean={np.mean(values):.4f}, "
                 f"nonzero={np.count_nonzero(values):,}"
             )
-
-    # * =========================================================*
-    # * FEATURE DIAGNOSTICS*
-    # * =========================================================*
-    @staticmethod
-    def _print_feature_diagnostic(name, feature):
-        finite = np.isfinite(feature)
-        finite_count = int(np.count_nonzero(finite))
-        nan_count = int(np.count_nonzero(~finite))
-        print(f"{name} CHECK")
-        if finite_count == 0:
-            print(f"{name} contains NO finite values.")
-            return
-        values = feature[finite]
-        print(f"{name} min: {np.min(values)}")
-        print(f"{name} max: {np.max(values)}")
-        print(f"{name} mean: {np.mean(values)}")
-        print(f"{name} finite: {finite_count:,}")
-        print(f"{name} NaN: {nan_count:,}")
 
     # * =========================================================*
     # * SAMPLE REGION OUTPUT*
