@@ -13,7 +13,8 @@ class ODMCommandBuilder:
         self.image_path = Path(image_path).expanduser().resolve()
         self.image_directory = (
             Path(image_directory).expanduser().resolve()
-            if image_directory is not None else None
+            if image_directory is not None
+            else None
         )
         self.output_path = Path(output_path).expanduser().resolve()
         self.project_name = project_name

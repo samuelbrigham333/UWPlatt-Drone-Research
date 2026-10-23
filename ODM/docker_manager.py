@@ -5,10 +5,10 @@ Provides functionality for verifying that Docker Desktop is running
 and available before executing the ODM pipeline
 """
 
-import subprocess
 import platform
-import time
 import shutil
+import subprocess
+import time
 
 
 class DockerManager:
@@ -21,7 +21,7 @@ class DockerManager:
                 ["docker", "info"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                timeout=10
+                timeout=10,
             )
 
             # Returns true if the command succeeded
@@ -47,23 +47,18 @@ class DockerManager:
                 raise RuntimeError("Docker CLI is not installed or not in PATH.")
 
             subprocess.run(
-                ["docker", "desktop", "start", "--detach"],
-                check=True,
-                timeout=30
+                ["docker", "desktop", "start", "--detach"], check=True, timeout=30
             )
 
         elif system == "Darwin":
             # Start Docker Desktop on macOS
-            subprocess.run(
-                ["open", "-a", "Docker"],
-                check=True
-            )
+            subprocess.run(["open", "-a", "Docker"], check=True)
 
         else:
             raise RuntimeError(f"Unsupported operating system: {system}")
 
     # waits for docker
-        # waits for docker to finish starting
+    # waits for docker to finish starting
     def wait_for_docker(self, timeout=120):
         start_time = time.monotonic()
 

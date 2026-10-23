@@ -12,27 +12,27 @@ Coordinates the complete drone-processing workflow:
 9. Run the feature extraction / superpixel pipeline.
 """
 
-import csv
+
 import time
 import traceback
 from pathlib import Path
-
 import numpy as np
 import rasterio
 from rasterio.windows import Window
-
 from ODM.raster.raster_loader import RasterLoader
 from ODM.region_feature_extractor import RegionFeatureExtractor
 from ODM.superpixel_overlay_writer import SuperpixelOverlayWriter
-from ODM.tile_processor import TileProcessor
 from ODM.ui import UserInterface
+from ODM.tile_processor import TileProcessor
 from services.odm_processing_service import ODMProcessingService
-
+from services.region_csv_exporter import RegionCSVExporter
 
 class ODMApplication:
     def __init__(self):
         self.results = {}
+
         self.odm_service = ODMProcessingService()
+        self.csv_exporter = RegionCSVExporter()
 
     def execute(self):
         while True:
@@ -254,8 +254,13 @@ class ODMApplication:
         print(f"Multispectral overlay JPEG --> {multispectral_jpg_path}")
         print("\n=== Feature Pipeline Complete ===")
         print(f"Total regions extracted --> {len(all_regions):,}")
+
         csv_path = ortho_path.parent.parent / "region_features.csv"
-        self._save_regions_to_csv(all_regions, csv_path)
+
+        self.csv_exporter.export(
+            all_regions, csv_path,
+        )
+
         self.results = all_regions
         self._print_sample_regions(all_regions)
         print(
@@ -264,36 +269,7 @@ class ODMApplication:
         )
         return all_regions
 
-    # * =========================================================*
-    # * SAVE REGION FEATURES*
-    # * =========================================================*
-    @staticmethod
-    def _save_regions_to_csv(regions, output_path):
-        if not regions:
-            print("\nNo region data to save.")
-            return
-        output_path = Path(output_path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        fieldnames = {"region_id"}
-        for features in regions.values():
-            fieldnames.update(features.keys())
-        fieldnames = sorted(fieldnames)
-        if "region_id" in fieldnames:
-            fieldnames.remove("region_id")
-            fieldnames.insert(0, "region_id")
-        with open(output_path, "w", newline="", encoding="utf-8") as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-            writer.writeheader()
-            for region_id, features in regions.items():
-                row = {"region_id": region_id}
-                for name, value in features.items():
-                    if isinstance(value, np.generic):
-                        value = value.item()
-                    row[name] = value
-                writer.writerow(row)
-        print("\n=== CSV Output ===")
-        print(f"Region feature CSV --> {output_path}")
-        print(f"Rows written --> {len(regions):,}")
+    
 
     # * =========================================================*
     # * BAND DIAGNOSTICS*
