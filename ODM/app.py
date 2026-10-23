@@ -12,19 +12,20 @@ Coordinates the complete drone-processing workflow:
 9. Run the feature extraction / superpixel pipeline.
 """
 
-
 import time
 import traceback
 from pathlib import Path
+
 import numpy as np
 import rasterio
 from rasterio.windows import Window
+
+from ODM.feature_inspector import FeatureInspector
 from ODM.raster.raster_loader import RasterLoader
 from ODM.region_feature_extractor import RegionFeatureExtractor
 from ODM.superpixel_overlay_writer import SuperpixelOverlayWriter
-from ODM.ui import UserInterface
 from ODM.tile_processor import TileProcessor
-from ODM.feature_inspector import FeatureInspector
+from ODM.ui import UserInterface
 from services.odm_processing_service import ODMProcessingService
 from services.region_csv_exporter import RegionCSVExporter
 
@@ -260,59 +261,16 @@ class ODMApplication:
         csv_path = ortho_path.parent.parent / "region_features.csv"
 
         self.csv_exporter.export(
-            all_regions, csv_path,
+            all_regions,
+            csv_path,
         )
 
         self.results = all_regions
-        self._print_sample_regions(all_regions)
+
+        FeatureInspector.print_sample_regions(all_regions)
+
         print(
             "\nSuperpixel label raster --> "
             f"{output_directory / 'superpixel_labels.tif'}"
         )
         return all_regions
-
-    
-
-    # * =========================================================*
-    # * BAND DIAGNOSTICS*
-    # * =========================================================*
-    @staticmethod
-    def _print_band_diagnostics(bands):
-        print("\nRAW BAND CHECK")
-        print(f"Shape: {bands.shape}")
-        names = ["Red", "Green", "NIR", "Red Edge", "Alpha"]
-        for index in range(bands.shape[0]):
-            band = bands[index]
-            finite = np.isfinite(band)
-            name = names[index] if index < len(names) else "Unknown"
-            if not np.any(finite):
-                print(f"Band {index + 1} ({name}): NO FINITE VALUES")
-                continue
-            values = band[finite]
-            print(
-                f"Band {index + 1} ({name}): "
-                f"min={np.min(values):.4f}, "
-                f"max={np.max(values):.4f}, "
-                f"mean={np.mean(values):.4f}, "
-                f"nonzero={np.count_nonzero(values):,}"
-            )
-
-    # * =========================================================*
-    # * SAMPLE REGION OUTPUT*
-    # * =========================================================*
-    @staticmethod
-    def _print_sample_regions(regions, count=5):
-        if not regions:
-            print("\nNo regions were extracted.")
-            return
-        print("\n=== Sample Region Features ===")
-        for region_id, features in list(regions.items())[:count]:
-            print(f"\nRegion {region_id}")
-            for name, value in features.items():
-                if isinstance(value, (float, np.floating)):
-                    if np.isnan(value):
-                        print(f"  {name}: NaN")
-                    else:
-                        print(f"  {name}: {value:.6f}")
-                else:
-                    print(f"  {name}: {value}")
