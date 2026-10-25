@@ -36,7 +36,6 @@ class ODMCommandBuilder:
             "/datasets",
             self.project_name,
             "--split",
-            "--split",
             str(self.options["split"]),
             "--split-overlap",
             str(self.options["split_overlap"]),
