@@ -42,7 +42,6 @@ class ODMProcessingService:
         print("\n=== Image Validation ===")
         print(f"Validating images in:\n{image_path}")
         validate_images(image_path)
-        print("Metadata validation passed.")
 
         # Run the main ODM project.
         ortho_path = self._run_odm_project(
@@ -121,12 +120,8 @@ class ODMProcessingService:
         command = command_builder.build_command()
 
         print(f"\n=== ODM Command: {project_name} ===")
-        print(
-            " ".join(
-                f'"{argument}"' if " " in str(argument) else str(argument)
-                for argument in command
-            )
-        )
+        print(f"Docker image: opendronemap/odm:3.6.1")
+        print(f"Split size: {options['split']} | Overlap: {options['split_overlap']}")
 
         print(f"\n=== Running ODM: {project_name} ===")
         runner = self.runner_class(command)

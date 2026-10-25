@@ -16,7 +16,17 @@ class ODMRunner:
 
         print("\nRunning ODM...\n")
 
+        
         result = subprocess.run(self.command)
 
         if result.returncode != 0:
-            raise RuntimeError("ODM processing failed.")
+            print(f"\nDocker exit code: {result.returncode}")
+
+            if result.returncode == 137:
+                print("Possible out-of-memory termination (SIGKILL).")
+            elif result.returncode == 139:
+                print("Possible native segmentation fault (SIGSEGV).")
+
+            raise RuntimeError(
+                f"ODM processing failed (exit code {result.returncode})."
+            )
