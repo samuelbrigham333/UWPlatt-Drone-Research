@@ -8,6 +8,16 @@ from pathlib import Path
 
 
 class UserInterface:
+    @staticmethod
+    def _parse_path(raw_path):
+        """Accept pasted paths with or without surrounding single/double quotes."""
+        cleaned = raw_path.strip()
+
+        if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in ("\"", "'"):
+            cleaned = cleaned[1:-1]
+
+        return Path(cleaned).expanduser().resolve()
+
     # ==========================================================
     # MAIN MENU
     # ==========================================================
@@ -86,10 +96,8 @@ class UserInterface:
         print("\n=== Feature Extraction & Superpixel Generation ===")
 
         while True:
-            path = (
-                Path(input("MultiSpectral Orthomosaic (.tif) --> ").strip())
-                .expanduser()
-                .resolve()
+            path = UserInterface._parse_path(
+                input("MultiSpectral Orthomosaic (.tif) --> ")
             )
 
             if not path.exists():
@@ -104,10 +112,8 @@ class UserInterface:
 
     def get_rgb_orthomosaic_path():
         while True:
-            path = (
-                Path(input("RGB Orthomosaic (.tif) --> ").strip())
-                .expanduser()
-                .resolve()
+            path = UserInterface._parse_path(
+                input("RGB Orthomosaic (.tif) --> ")
             )
 
             if not path.exists():
@@ -225,7 +231,7 @@ class UserInterface:
     def _get_existing_directory(prompt):
 
         while True:
-            path = Path(input(f"{prompt} --> ").strip()).expanduser().resolve()
+            path = UserInterface._parse_path(input(f"{prompt} --> "))
 
             if path.exists() and path.is_dir():
                 return path
@@ -235,7 +241,7 @@ class UserInterface:
     @staticmethod
     def _get_output_directory(prompt):
 
-        path = Path(input(f"{prompt} --> ").strip()).expanduser().resolve()
+        path = UserInterface._parse_path(input(f"{prompt} --> "))
 
         path.mkdir(parents=True, exist_ok=True)
 
