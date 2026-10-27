@@ -1,0 +1,77 @@
+/* ==========================================================
+   GLOBAL RESETS AND TYPOGRAPHY
+
+   Formatting-only cleanup. Layout rules and values remain
+   unchanged; update the selectors below to customize the UI.
+   ========================================================== */
+
+/* ============================================================
+   APPLICATION RESET
+   The desktop window is the layout boundary, not a centered site.
+   ============================================================ */
+:root {
+    font-family: 'Segoe UI', Arial, system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.45;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body, #root {
+    width: 100%;
+    min-width: 0;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    height: 100%;
+}
+
+body {
+    min-height: 100dvh;
+    background: var(--ui-page);
+    color: var(--ui-text);
+}
+
+#root {
+    min-height: 100dvh;
+    max-width: none;
+    border: 0;
+    text-align: left;
+    display: block;
+}
+
+button, input, select, textarea {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+button:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: 2px;
+}
+
+h1, h2, h3, p {
+    margin-top: 0;
+}
+
+h1, h2, h3 {
+    font-weight: 600;
+    letter-spacing: normal;
+    color: var(--ui-text);
+}

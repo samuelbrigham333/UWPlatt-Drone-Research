@@ -1,0 +1,154 @@
+/* ==========================================================
+   SETTINGS AND CONFIGURATION CONTROLS
+
+   Formatting-only cleanup. Layout rules and values remain
+   unchanged; update the selectors below to customize the UI.
+   ========================================================== */
+
+/* ============================================================
+   SHARED PARAMETERS / SETTINGS PANELS
+   Compact, functional controls similar to desktop GIS tools.
+   ============================================================ */
+.config-page {
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    padding: 0;
+}
+
+.config-page > h1 {
+    font-size: 1.55rem;
+    margin: 0;
+    font-weight: 600;
+}
+
+.config-page > p {
+    color: var(--ui-muted);
+    margin: -4px 0 5px;
+    line-height: 1.5;
+}
+
+.config-card {
+    width: 100%;
+    min-width: 0;
+    padding: 16px 18px;
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+    box-shadow: none;
+}
+
+.config-card h2 {
+    font-size: 1.05rem;
+    line-height: 1.35;
+    margin: 0 0 12px;
+    font-weight: 600;
+}
+
+.config-card > p {
+    margin: 0 0 12px;
+}
+
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 18px;
+    min-width: 0;
+}
+
+.config-grid > label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+    color: var(--ui-text);
+    font-size: .93rem;
+    font-weight: 500;
+}
+
+.config-page input:not([type="checkbox"]), .config-page select, .config-page textarea {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 35px;
+    padding: 6px 9px;
+    background: var(--ui-surface);
+    color: var(--ui-text);
+    border: 1px solid var(--ui-border);
+    border-radius: 2px;
+    box-shadow: none;
+}
+
+.config-page input:focus, .config-page select:focus, .config-page textarea:focus {
+    border-color: var(--ui-accent);
+}
+
+.config-page button {
+    min-height: 34px;
+    padding: 7px 12px;
+    background: var(--ui-surface-alt);
+    color: var(--ui-text);
+    border: 1px solid var(--ui-border);
+    border-radius: 2px;
+    font-weight: 500;
+}
+
+.config-page button:hover:not(:disabled) {
+    border-color: var(--ui-accent);
+    background: var(--ui-surface);
+}
+
+.config-page .config-checkbox {
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    gap: 8px;
+    line-height: 1.4;
+    font-weight: 400;
+}
+
+.config-checkbox input {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    accent-color: var(--ui-accent);
+}
+
+.config-description {
+    margin: 10px 0 0 !important;
+    color: var(--ui-muted);
+    font-size: .88rem;
+    line-height: 1.5;
+}
+
+.config-page [role="alert"], .error-text {
+    color: var(--ui-danger);
+    overflow-wrap: anywhere;
+}
+
+.diagnostics {
+    margin: 12px 0 0;
+    padding: 11px 13px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--ui-terminal-text);
+    background: var(--ui-terminal);
+    border: 1px solid var(--ui-border);
+    border-radius: 2px;
+    font: .86rem/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+@media (max-width: 1040px) {
+    .config-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 460px) {
+    .config-card {
+        padding: 13px 11px;
+    }
+}
