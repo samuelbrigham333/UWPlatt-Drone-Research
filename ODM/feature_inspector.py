@@ -96,7 +96,7 @@ class FeatureInspector:
             )
 
     @staticmethod
-    def _print_sample_regions(regions, count=5):
+    def print_sample_regions(regions, count=5):
         if not regions:
             print("\nNo regions were extracted.")
             return

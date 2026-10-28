@@ -43,7 +43,8 @@ class ODMApplication:
             if selection == "1":
                 try:
                     ortho_path, rgb_ortho_path = self.odm_service.process_images()
-                    self.run_feature_pipeline(ortho_path, rgb_ortho_path)
+                    #line 47 commented out so that it does not kick you into superpixel generation automatically 
+                    #self.run_feature_pipeline(ortho_path, rgb_ortho_path)
                 except Exception as error:
                     print("\n========================================")
                     print("[ERROR]")
@@ -267,9 +268,9 @@ class ODMApplication:
             csv_path,
         )
 
-        self.results = all_regions
+        #self.results = all_regions
 
-        FeatureInspector.print_sample_regions(all_regions)
+        #FeatureInspector.print_sample_regions(all_regions)
 
         print(
             "\nSuperpixel label raster --> "
