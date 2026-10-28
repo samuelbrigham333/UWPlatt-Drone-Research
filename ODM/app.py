@@ -166,7 +166,9 @@ class ODMApplication:
                         print(f"Target region area: {region_area:.2f} m²")
                         print(f"Target superpixels: {target_segments:,}")
                         print("=" * 60)
-                        tile = loader.load_window(window)
+                        
+                        tile = loader.load_window(window, band_indexes = [1,2,3,4])
+                
                         if not loader.tile_has_data(tile):
                             print(
                                 f"\nTile {tile_number} contains no valid data. Skipping."
