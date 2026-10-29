@@ -1,0 +1,167 @@
+/* ==========================================================
+   APPLICATION LAYOUT / RESPONSIVE NAVIGATION
+
+   Formatting-only cleanup. Layout rules and values remain
+   unchanged; update the selectors below to customize the UI.
+   ========================================================== */
+
+/* ============================================================
+   DESKTOP APPLICATION SHELL
+   Fill the whole Tauri viewport; resize panels with the window.
+   ============================================================ */
+.appContainer {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+    min-height: 100dvh;
+    height: 100dvh;
+    margin: 0;
+    background: var(--ui-page);
+}
+
+/* University identity stays full-width; it is not a content card. */
+.headerContainer {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    min-height: 66px;
+    padding: 9px 22px;
+    background: var(--ui-surface);
+    border-bottom: 1px solid var(--ui-border);
+}
+
+.headerContainer img {
+    display: block;
+    max-width: min(320px, 100%);
+    max-height: 46px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+/* Only the working regions scroll; the app never centers itself. */
+.contentContainer {
+    display: grid;
+    grid-template-columns: 238px minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+}
+
+.navigationBarContainer {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    padding: 14px 9px;
+    overflow-y: auto;
+    background: var(--ui-sidebar);
+    border-right: 1px solid var(--ui-border);
+}
+
+.navigationBar {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.navigationBarContainer button {
+    display: block;
+    width: 100%;
+    padding: 10px 12px;
+    color: var(--ui-text);
+    text-align: left;
+    line-height: 1.35;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    transition: background-color 120ms ease;
+}
+
+.navigationBarContainer button:hover {
+    background: var(--ui-surface-alt);
+}
+
+.navigationBarContainer button.active {
+    color: var(--ui-text);
+    background: var(--ui-surface);
+    border-left: 3px solid var(--ui-accent);
+    border-top-color: var(--ui-border);
+    border-right-color: var(--ui-border);
+    border-bottom-color: var(--ui-border);
+    padding-left: 10px;
+    font-weight: 600;
+}
+
+.settingsButton {
+    margin-top: auto;
+}
+
+.mainBody {
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    overflow: auto;
+    padding: clamp(14px, 2vw, 28px);
+}
+
+/* Switch to horizontal navigation on narrow application windows. */
+@media (max-width: 820px) {
+    .appContainer {
+        height: 100dvh;
+    }
+    .contentContainer {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+    .navigationBarContainer {
+        flex-direction: row;
+        align-items: stretch;
+        gap: 6px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 7px;
+        border-right: 0;
+        border-bottom: 1px solid var(--ui-border);
+    }
+    .navigationBar {
+        flex-direction: row;
+        gap: 4px;
+    }
+    .navigationBarContainer button {
+        width: auto;
+        max-width: 225px;
+        min-width: 115px;
+        white-space: normal;
+        padding: 7px 10px;
+        font-size: .9rem;
+    }
+    .navigationBarContainer button.active {
+        border-left: 1px solid var(--ui-border);
+        border-bottom: 3px solid var(--ui-accent);
+        padding: 7px 10px 5px;
+    }
+    .settingsButton {
+        margin-top: 0;
+        margin-left: auto;
+    }
+    .mainBody {
+        padding: 14px;
+    }
+}
+
+@media (max-width: 460px) {
+    .headerContainer {
+        min-height: 54px;
+        padding: 8px 12px;
+    }
+    .headerContainer img {
+        max-height: 34px;
+    }
+    .navigationBarContainer button {
+        min-width: 105px;
+    }
+    .mainBody {
+        padding: 10px;
+    }
+}

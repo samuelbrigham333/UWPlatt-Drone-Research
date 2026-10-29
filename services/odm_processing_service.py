@@ -11,6 +11,7 @@ Responsibilities:
 """
 
 from pathlib import Path
+import shutil
 
 from ODM.command_builder import ODMCommandBuilder
 from ODM.docker_manager import DockerManager
@@ -20,18 +21,26 @@ from ODM.validate_images import validate_images
 
 
 class ODMProcessingService:
-    def __init__(self, docker_manager=None, runner_class=ODMRunner):
+    def __init__(self, docker_manager=None, runner_class=ODMRunner, stage_callback=None):
         # Dependencies can be replaced during testing.
         self.docker_manager = docker_manager or DockerManager()
         self.runner_class = runner_class
+        self.stage_callback = stage_callback
 
-    def process_images(self):
+    def _stage(self, label):
+        if self.stage_callback:
+            self.stage_callback(label)
+
+    def process_images(self, config=None, auto_start_docker=True):
         """Run ODM for multispectral and RGB images."""
 
         print("\n=== ODM Processing ===")
-        self._ensure_docker_running()
+        self._stage('Checking Docker')
+        self._ensure_docker_running(auto_start_docker=auto_start_docker)
 
-        config = UserInterface.get_odm_configuration()
+        # CLI keeps interactive prompts; Tauri passes the same configuration dictionary.
+        if config is None:
+            config = UserInterface.get_odm_configuration()
 
         image_path = Path(config["image_path"])
         output_path = Path(config["output_path"])
@@ -39,12 +48,13 @@ class ODMProcessingService:
         options = config["pipeline_options"]
 
         # Validate the source images before starting ODM.
+        self._stage('Validating images')
         print("\n=== Image Validation ===")
         print(f"Validating images in:\n{image_path}")
         validate_images(image_path)
-        print("Metadata validation passed.")
 
         # Run the main ODM project.
+        self._stage('Processing multispectral orthomosaic')
         ortho_path = self._run_odm_project(
             image_path=image_path,
             output_path=output_path,
@@ -53,6 +63,7 @@ class ODMProcessingService:
         )
 
         # Create a view containing only RGB images.
+        self._stage('Preparing RGB files')
         rgb_directory = self._create_rgb_view(
             image_path,
             output_path,
@@ -60,6 +71,7 @@ class ODMProcessingService:
         )
 
         # Run a second ODM project using only RGB images.
+        self._stage('Processing RGB orthomosaic')
         rgb_project_name = f"{project_name}_rgb"
 
         self._run_odm_project(
@@ -72,13 +84,14 @@ class ODMProcessingService:
 
         rgb_ortho_path = self._find_orthomosaic(output_path / rgb_project_name)
 
+        self._stage('ODM passes completed')
         print("\n=== ODM Complete ===")
         print(f"Orthomosaic --> {ortho_path}")
         print(f"RGB Orthomosaic --> {rgb_ortho_path}")
 
         return ortho_path, rgb_ortho_path
 
-    def _ensure_docker_running(self):
+    def _ensure_docker_running(self, auto_start_docker=True):
         """Start Docker Desktop if necessary and wait for readiness."""
 
         print("\n=== Docker Check ===")
@@ -88,6 +101,8 @@ class ODMProcessingService:
             return
 
         print("Docker Desktop is not running.")
+        if not auto_start_docker:
+            raise RuntimeError('Docker is not running. Start Docker Desktop or enable auto-start in Settings.')
         self.docker_manager.start_docker()
 
         docker_ready = self.docker_manager.wait_for_docker(timeout=120)
@@ -121,12 +136,8 @@ class ODMProcessingService:
         command = command_builder.build_command()
 
         print(f"\n=== ODM Command: {project_name} ===")
-        print(
-            " ".join(
-                f'"{argument}"' if " " in str(argument) else str(argument)
-                for argument in command
-            )
-        )
+        print(f"Docker image: {command[command.index('--project-path') - 1]}")
+        print(f"Split size: {options['split']} | Overlap: {options['split_overlap']}")
 
         print(f"\n=== Running ODM: {project_name} ===")
         runner = self.runner_class(command)
@@ -172,7 +183,7 @@ class ODMProcessingService:
     def _get_rgb_images(image_path):
         """Return the RGB source images matching the existing convention."""
 
-        rgb_images = list(Path(image_path).glob("*_D.JPG"))
+        rgb_images = sorted(p for p in Path(image_path).iterdir() if p.is_file() and p.name.upper().endswith('_D.JPG'))
 
         if not rgb_images:
             raise FileNotFoundError(f"No RGB images found in {image_path}")
@@ -191,6 +202,10 @@ class ODMProcessingService:
             target = rgb_directory / image.name
 
             if not target.exists():
-                target.hardlink_to(image)
+                try:
+                    target.hardlink_to(image)
+                except OSError:
+                    # Cross-volume drive or filesystem without hard links.
+                    shutil.copy2(image, target)
 
         return rgb_directory

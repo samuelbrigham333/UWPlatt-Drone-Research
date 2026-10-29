@@ -1,0 +1,65 @@
+/* ==========================================================
+   SHARED LIGHT, DARK AND SYSTEM THEME TOKENS
+
+   Formatting-only cleanup. Layout rules and values remain
+   unchanged; update the selectors below to customize the UI.
+   ========================================================== */
+
+/* ============================================================
+   RESEARCH APPLICATION COLOR SYSTEM
+   Neutral surfaces, thin dividers and understated accent colors.
+   Edit tokens here without modifying the React or Python code.
+   ============================================================ */
+:root, :root[data-theme="light"], :root[data-theme="system"] {
+    color-scheme: light;
+    --ui-page: #f3f4f5;
+    --ui-surface: #ffffff;
+    --ui-surface-alt: #eef0f1;
+    --ui-sidebar: #f5f6f7;
+    --ui-border: #d2d6d9;
+    --ui-text: #222c32;
+    --ui-muted: #626e75;
+    --ui-accent: #27617c;
+    --ui-accent-text: #ffffff;
+    --ui-focus: #4685a3;
+    --ui-terminal: #191f24;
+    --ui-terminal-text: #dce5e9;
+    --ui-danger: #a72f36;
+    --ui-radius: 3px;
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --ui-page: #1e2328;
+    --ui-surface: #272e34;
+    --ui-surface-alt: #303941;
+    --ui-sidebar: #242b31;
+    --ui-border: #475059;
+    --ui-text: #e3e7e9;
+    --ui-muted: #aeb9c0;
+    --ui-accent: #76afc7;
+    --ui-accent-text: #14252e;
+    --ui-focus: #89c3dd;
+    --ui-terminal: #151a1e;
+    --ui-terminal-text: #d7e2e8;
+    --ui-danger: #f08e95;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root[data-theme="system"] {
+        color-scheme: dark;
+        --ui-page: #1e2328;
+        --ui-surface: #272e34;
+        --ui-surface-alt: #303941;
+        --ui-sidebar: #242b31;
+        --ui-border: #475059;
+        --ui-text: #e3e7e9;
+        --ui-muted: #aeb9c0;
+        --ui-accent: #76afc7;
+        --ui-accent-text: #14252e;
+        --ui-focus: #89c3dd;
+        --ui-terminal: #151a1e;
+        --ui-terminal-text: #d7e2e8;
+        --ui-danger: #f08e95;
+    }
+}

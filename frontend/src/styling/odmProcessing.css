@@ -1,0 +1,89 @@
+/* ==========================================================
+   ODM PROCESSING WORKSPACE
+
+   Formatting-only cleanup. Layout rules and values remain
+   unchanged; update the selectors below to customize the UI.
+   ========================================================== */
+
+/* ============================================================
+   ODM PROCESSING WORKSPACE
+   Directory selectors, processing actions, logs and status.
+   ============================================================ */
+.odm-page .path-row {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    min-width: 0;
+}
+
+.odm-page .path-row input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.odm-page .path-row button {
+    flex: 0 0 auto;
+}
+
+.odm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.odm-actions h2 {
+    margin: 0 auto 0 0;
+}
+
+.odm-actions [role="status"] {
+    color: var(--ui-muted);
+    font-weight: 500;
+}
+
+.odm-actions button:first-of-type:not(:last-of-type) {
+    background: var(--ui-accent);
+    color: var(--ui-accent-text);
+    border-color: var(--ui-accent);
+}
+
+.odm-actions button:first-of-type:not(:last-of-type):hover:not(:disabled) {
+    background: var(--ui-accent);
+    color: var(--ui-accent-text);
+}
+
+.odm-progress {
+    display: block;
+    width: 100%;
+    height: 8px;
+    margin: 12px 0;
+    accent-color: var(--ui-accent);
+}
+
+.odm-log {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 210px;
+    height: clamp(210px, 32vh, 460px);
+    overflow: auto;
+    padding: 12px;
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--ui-terminal-text);
+    background: var(--ui-terminal);
+    border: 1px solid var(--ui-border);
+    border-radius: 2px;
+    font: .85rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+@media (max-width: 540px) {
+    .odm-page .path-row {
+        flex-wrap: wrap;
+    }
+    .odm-page .path-row button {
+        flex: 0 0 auto;
+    }
+}

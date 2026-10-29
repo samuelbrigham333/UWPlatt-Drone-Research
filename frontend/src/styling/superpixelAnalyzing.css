@@ -1,0 +1,322 @@
+/* ==========================================================
+   SUPERPIXEL TRAINING / CLASSIFICATION VIEW
+
+   Formatting-only cleanup. Layout rules and values remain
+   unchanged; update the selectors below to customize the UI.
+   ========================================================== */
+
+/* ==========================================================
+   SUPERPIXEL TRAINING WORKSPACE
+   Responsive, compact scientific desktop interface.
+   Uses application-wide light/dark variables from themes.css.
+   ========================================================== */
+.training-page {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 22px;
+    color: var(--ui-text, #17212f);
+}
+
+.training-page * {
+    box-sizing: border-box;
+}
+
+.training-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 18px;
+    margin-bottom: 20px;
+}
+
+.training-heading h1 {
+    font-size: 1.5rem;
+    margin: 0 0 6px;
+    font-weight: 600;
+}
+
+.training-heading p {
+    margin: 0;
+    color: var(--ui-muted, #586574);
+    font-size: .9rem;
+}
+
+.training-file-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--ui-border, #d9e0e8);
+    padding: 9px 13px;
+    font-size: .85rem;
+    cursor: pointer;
+    flex: none;
+    background: var(--ui-surface, white);
+}
+
+.training-file-button:hover {
+    border-color: var(--ui-accent, #285cac);
+}
+
+.training-file-button input {
+    display: none;
+}
+
+.training-empty, .training-classifier, .training-examples {
+    background: var(--ui-surface, #fff);
+    border: 1px solid var(--ui-border, #d9e0e8);
+}
+
+.training-empty {
+    padding: 24px;
+    line-height: 1.7;
+}
+
+.training-empty h2 {
+    font-size: 1.05rem;
+    margin: 0 0 8px;
+}
+
+.training-empty p {
+    margin: 8px 0;
+}
+
+.training-empty code {
+    font-size: .86em;
+    margin: 0 4px;
+}
+
+.training-error {
+    color: #af3434;
+    margin-bottom: 14px;
+}
+
+.training-summary {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    border: 1px solid var(--ui-border, #d9e0e8);
+    background: var(--ui-surface, white);
+    margin-bottom: 16px;
+}
+
+.training-summary > div {
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    border-right: 1px solid var(--ui-border, #d9e0e8);
+}
+
+.training-summary > div:last-child {
+    border-right: 0;
+}
+
+.training-summary span {
+    font-size: .75rem;
+    color: var(--ui-muted, #586574);
+}
+
+.training-summary strong {
+    font-size: 1.22rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.training-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+    align-items: start;
+    gap: 16px;
+}
+
+.training-classifier, .training-examples {
+    min-width: 0;
+    padding: 16px;
+}
+
+.training-section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.training-section-heading h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.training-section-heading span, .training-current {
+    color: var(--ui-muted, #586574);
+    font-size: .8rem;
+}
+
+.training-main-preview {
+    height: min(44vh, 420px);
+    min-height: 230px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid var(--ui-border, #d9e0e8);
+    background: repeating-conic-gradient(#d0d5da 0% 25%,#e8eaec 0% 50%) 50%/16px 16px;
+}
+
+.training-main-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: auto;
+}
+
+.training-help {
+    margin: 18px 0 10px;
+    font-weight: 600;
+    font-size: .92rem;
+}
+
+.training-class-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.training-class-buttons button, .training-controls button {
+    border: 1px solid var(--ui-border, #d9e0e8);
+    background: var(--ui-surface, white);
+    color: var(--ui-text, #17212f);
+    padding: 10px 12px;
+    font: inherit;
+    cursor: pointer;
+}
+
+.training-class-buttons button:hover:not(:disabled), .training-controls button:hover:not(:disabled) {
+    border-color: var(--ui-accent, #285cac);
+}
+
+.training-class-buttons button.selected {
+    border-color: var(--ui-accent, #285cac);
+    background: color-mix(in srgb, var(--ui-accent, #285cac) 12%, var(--ui-surface, white));
+    font-weight: 600;
+}
+
+.training-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 14px;
+}
+
+.training-controls button {
+    font-size: .83rem;
+    padding: 8px 12px;
+}
+
+.training-controls button:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.training-controls label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .78rem;
+}
+
+.training-footnote {
+    color: var(--ui-muted, #586574);
+    font-size: .76rem;
+    line-height: 1.5;
+    margin: 12px 0 0;
+}
+
+.training-example {
+    border-top: 1px solid var(--ui-border, #d9e0e8);
+    padding: 14px 0;
+}
+
+.training-example h3 {
+    margin: 0 0 4px;
+    font-size: .9rem;
+    font-weight: 600;
+}
+
+.training-example p {
+    font-size: .77rem;
+    line-height: 1.5;
+    margin: 0 0 12px;
+    color: var(--ui-muted, #586574);
+}
+
+.training-example img {
+    display: block;
+    width: 100%;
+    height: clamp(130px, 23vh, 240px);
+    object-fit: contain;
+    background: repeating-conic-gradient(#d0d5da 0% 25%,#e8eaec 0% 50%) 50%/16px 16px;
+    border: 1px solid var(--ui-border, #d9e0e8);
+}
+
+.training-footer {
+    margin-top: 16px;
+}
+
+.training-progress-bar {
+    background: var(--ui-border, #d9e0e8);
+    width: 100%;
+    height: 5px;
+}
+
+.training-progress-bar > div {
+    height: 100%;
+    background: var(--ui-accent, #285cac);
+    transition: width .2s;
+}
+
+.training-footer p {
+    margin: 8px 0 0;
+    font-size: .76rem;
+    color: var(--ui-muted, #586574);
+}
+
+@media (max-width: 900px) {
+    .training-workspace {
+        grid-template-columns: 1fr;
+    }
+    .training-summary {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .training-summary > div:nth-child(3) {
+        border-right: 0;
+    }
+    .training-summary > div:nth-child(-n+3) {
+        border-bottom: 1px solid var(--ui-border, #d9e0e8);
+    }
+}
+
+@media (max-width: 540px) {
+    .training-page {
+        padding: 12px;
+    }
+    .training-heading {
+        flex-direction: column;
+    }
+    .training-summary {
+        grid-template-columns: repeat(2,minmax(0,1fr));
+    }
+    .training-summary > div:nth-child(3) {
+        border-right: 1px solid var(--ui-border, #d9e0e8);
+    }
+    .training-summary > div:nth-child(even) {
+        border-right: 0;
+    }
+    .training-summary > div:nth-child(4) {
+        border-bottom: 1px solid var(--ui-border, #d9e0e8);
+    }
+    .training-class-buttons {
+        grid-template-columns: 1fr;
+    }
+}
