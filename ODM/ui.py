@@ -252,7 +252,14 @@ class UserInterface:
                 continue
 
             if (output_path / name).exists():
-                print("Project name already exists.\n")
+                if not (output_path / name).is_dir():
+                    print("A file with that project name already exists.\n")
+                    continue
+                answer = input(
+                    "Existing ODM project found. Resume with the SAME source/settings? [y/N] --> "
+                ).strip().lower()
+                if answer in ("y", "yes"):
+                    return name
                 continue
 
             return name
