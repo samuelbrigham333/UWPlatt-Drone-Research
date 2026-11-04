@@ -9,8 +9,6 @@ The terminal/CLI still calls the same service without a config and keeps its pro
 import json
 import os
 import platform
-import shutil
-import subprocess
 import re
 import sys
 import traceback
@@ -34,25 +32,9 @@ def emit(stage, message=None):
 
 
 def nvidia_available_on_host():
-    """Detect an actual NVIDIA driver on Windows, not merely an installed CUDA SDK."""
-    candidates = []
-    path_exe = shutil.which('nvidia-smi')
-    if path_exe:
-        candidates.append(path_exe)
-    if platform.system() == 'Windows':
-        for variable in ('ProgramW6432', 'ProgramFiles'):
-            directory = os.environ.get(variable)
-            if directory:
-                candidates.append(str(Path(directory) / 'NVIDIA Corporation' / 'NVSMI' / 'nvidia-smi.exe'))
-    for candidate in dict.fromkeys(candidates):
-        try:
-            result = subprocess.run([candidate, '-L'], capture_output=True,
-                                    timeout=5, text=True, check=False)
-            if result.returncode == 0 and result.stdout.strip():
-                return True
-        except (OSError, subprocess.TimeoutExpired):
-            pass
-    return False
+    """Use the same NVIDIA detection as the command-line backend."""
+    from ODM.docker_manager import DockerManager
+    return DockerManager().nvidia_gpu_available()
 
 
 def resolve_gpu_mode(preference):
@@ -88,8 +70,6 @@ def parse_request(request):
         raise NotADirectoryError(f'Invalid output folder: {output_path}')
     if image_path == output_path or image_path in output_path.parents:
         raise ValueError('Output folder must not be the source image folder or inside it.')
-    if (output_path / project_name).exists() or (output_path / (project_name + '_rgb')).exists():
-        raise FileExistsError('Project already exists in the output folder. Choose another name.')
 
     # The existing RGB workflow looks for *_D.JPG in the SAME folder.
     rgb_images = sorted(p for p in image_path.iterdir()
@@ -112,11 +92,7 @@ def parse_request(request):
     overlap = float(odm['splitOverlap'])
     if split <= 0 or overlap < 0:
         raise ValueError('Invalid split/overlap settings.')
-    resolution = float(odm['orthophotoResolution'])
-    if resolution <= 0:
-        raise ValueError('Orthophoto resolution must be positive.')
-    # This first integration is ODM-only. Reject unsupported workflows
-    # explicitly instead of accidentally calling an interactive CLI prompt.
+    
     if request.get('generateSuperpixels', False):
         raise ValueError('Superpixel generation is not connected on this page yet.')
 
@@ -129,7 +105,6 @@ def parse_request(request):
             'split_overlap': overlap,
             'pc_quality': odm['pointCloudQuality'],
             'feature_quality': odm['featureQuality'],
-            'orthophoto_resolution': resolution,
             'dsm': bool(odm['dsm']),
             'dtm': bool(odm['dtm']),
             'gpu_mode': gpu,

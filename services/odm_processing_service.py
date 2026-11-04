@@ -148,35 +148,29 @@ class ODMProcessingService:
 
     @staticmethod
     def _find_orthomosaic(project_path):
-        """Locate the generated orthomosaic in an ODM project."""
+        """Locate a real, readable orthomosaic in this project's output only."""
+        import rasterio
 
         project_path = Path(project_path)
-
+        orthophoto_dir = project_path / "odm_orthophoto"
         candidates = [
-            project_path / "odm_orthophoto" / "odm_orthophoto.tif",
-            project_path / "odm_orthophoto" / "odm_orthophoto.original.tif",
-            project_path / "odm_orthophoto" / "odm_orthophoto.original.jpg",
-            project_path / "odm_orthophoto" / "odm_orthophoto.rgb.tif",
+            orthophoto_dir / "odm_orthophoto.tif",
+            orthophoto_dir / "odm_orthophoto.original.tif",
+            orthophoto_dir / "odm_orthophoto.rgb.tif",
         ]
-
         for candidate in candidates:
-            if candidate.is_file():
-                return candidate
-
-        # Fallback: search recursively for an orthophoto.
-        for pattern in ("*.tif", "*.jpg"):
-            files = list(project_path.rglob(pattern))
-
-            for file_path in files:
-                if "orthophoto" in file_path.name.lower():
-                    return file_path
-
-            if files:
-                return files[0]
+            if not candidate.is_file() or candidate.stat().st_size == 0:
+                continue
+            try:
+                with rasterio.open(candidate) as src:
+                    if src.driver == "GTiff" and src.count > 0 and src.width > 0 and src.height > 0:
+                        return candidate
+            except (OSError, rasterio.errors.RasterioIOError):
+                continue
 
         raise FileNotFoundError(
-            "ODM completed, but an orthomosaic could not be found.\n"
-            f"Project path:\n{project_path}"
+            "ODM finished, but no readable orthomosaic GeoTIFF was found in "
+            f"{orthophoto_dir}. The submodel TIFFs are not substitutes."
         )
 
     @staticmethod
@@ -201,11 +195,20 @@ class ODMProcessingService:
         for image in rgb_images:
             target = rgb_directory / image.name
 
-            if not target.exists():
+            # An interrupted copy from a different drive can exist but be incomplete.
+            if target.exists() and target.stat().st_size == image.stat().st_size:
+                continue
+            if target.exists():
+                target.unlink()
+            try:
+                target.hardlink_to(image)
+            except OSError:
+                # Cross-volume or cloud filesystem: copy to temp, then publish.
+                temporary = target.with_name(target.name + ".part")
                 try:
-                    target.hardlink_to(image)
-                except OSError:
-                    # Cross-volume drive or filesystem without hard links.
-                    shutil.copy2(image, target)
+                    shutil.copy2(image, temporary)
+                    temporary.replace(target)
+                finally:
+                    temporary.unlink(missing_ok=True)
 
         return rgb_directory

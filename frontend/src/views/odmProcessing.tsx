@@ -137,9 +137,6 @@ export default function ODMProcessing({ settings, setSettings, job, setJob }: Pr
                             {['low', 'medium', 'high', 'ultra'].map(v => <option key={v} value={v}>{v}</option>)}
                         </select>
                     </label>
-                    <label>Orthophoto resolution (cm/pixel)
-                        <input type="number" min={0.1} step={0.1} value={settings.odm.orthophotoResolution} onChange={e => updateODM({ orthophotoResolution: Number(e.target.value) })} />
-                    </label>
                     <label>Max concurrency
                         <input type="number" min={1} max={64} value={settings.docker.maxConcurrency} onChange={e => updateDocker({ maxConcurrency: Number(e.target.value) })} />
                     </label>
