@@ -1,15 +1,24 @@
 """
-Handles ODM processing.
+TEMPORARY RGB-RESUME VERSION of odm_processing_service.py.
+
+For the previously completed ODM job, this version reuses an existing
+odm_orthophoto.tif instead of rerunning the multispectral stage. It then
+creates the RGB-only image directory and launches the RGB ODM pass.
+
+Replace services/odm_processing_service.py with this file for the recovery run.
+Restore your original service after the recovery run if you do not want
+automatic reuse of existing multispectral orthomosaics.
 
 Responsibilities:
-1. Verify Docker is running. (if docker is not running, begin running)
-2. Collect ODM config
-3. Validate source images
-4. Build and execute ODM commands
-5. Create an RGB-Only image directory (for rgb orthomosaic creation)
-6. Locate and return BOTH orthomosaics (will produce a multispectral ortho and a RGB ortho)
+1. Verify Docker is running (start it when configured).
+2. Collect ODM configuration.
+3. Validate source images.
+4. Build and execute ODM commands when required.
+5. Create an RGB-only image directory.
+6. Locate and return both orthomosaics.
 """
 
+import os
 from pathlib import Path
 import shutil
 
@@ -53,14 +62,25 @@ class ODMProcessingService:
         print(f"Validating images in:\n{image_path}")
         validate_images(image_path)
 
-        # Run the main ODM project.
-        self._stage('Processing multispectral orthomosaic')
-        ortho_path = self._run_odm_project(
-            image_path=image_path,
-            output_path=output_path,
-            project_name=project_name,
-            options=options,
+        # TEMPORARY: reuse the already-completed multispectral orthomosaic.
+        # This check is meant for resuming your finished ODM job, not for
+        # deliberately regenerating a project after changing the settings.
+        existing_ortho = (
+            output_path / project_name / "odm_orthophoto" / "odm_orthophoto.tif"
         )
+
+        if existing_ortho.is_file():
+            self._stage('Reusing completed multispectral orthomosaic')
+            print(f"\nSkipping completed multispectral ODM pass: {existing_ortho}")
+            ortho_path = existing_ortho
+        else:
+            self._stage('Processing multispectral orthomosaic')
+            ortho_path = self._run_odm_project(
+                image_path=image_path,
+                output_path=output_path,
+                project_name=project_name,
+                options=options,
+            )
 
         # Create a view containing only RGB images.
         self._stage('Preparing RGB files')
@@ -102,9 +122,11 @@ class ODMProcessingService:
 
         print("Docker Desktop is not running.")
         if not auto_start_docker:
-            raise RuntimeError('Docker is not running. Start Docker Desktop or enable auto-start in Settings.')
+            raise RuntimeError(
+                'Docker is not running. Start Docker Desktop or enable auto-start in Settings.'
+            )
         self.docker_manager.start_docker()
-
+        
         docker_ready = self.docker_manager.wait_for_docker(timeout=120)
 
         if not docker_ready:
@@ -183,7 +205,10 @@ class ODMProcessingService:
     def _get_rgb_images(image_path):
         """Return the RGB source images matching the existing convention."""
 
-        rgb_images = sorted(p for p in Path(image_path).iterdir() if p.is_file() and p.name.upper().endswith('_D.JPG'))
+        rgb_images = sorted(
+            p for p in Path(image_path).iterdir()
+            if p.is_file() and p.name.upper().endswith('_D.JPG')
+        )
 
         if not rgb_images:
             raise FileNotFoundError(f"No RGB images found in {image_path}")
@@ -203,7 +228,8 @@ class ODMProcessingService:
 
             if not target.exists():
                 try:
-                    target.hardlink_to(image)
+                    # Works with older macOS Python versions as well as Windows.
+                    os.link(image, target)
                 except OSError:
                     # Cross-volume drive or filesystem without hard links.
                     shutil.copy2(image, target)
