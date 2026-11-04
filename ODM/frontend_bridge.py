@@ -88,18 +88,8 @@ def parse_request(request):
         raise NotADirectoryError(f'Invalid output folder: {output_path}')
     if image_path == output_path or image_path in output_path.parents:
         raise ValueError('Output folder must not be the source image folder or inside it.')
-    # TEMPORARY RGB RESUME: allow this existing project only when ODM already
-    # finished its multispectral orthomosaic and RGB processing has not begun.
-    existing_project = output_path / project_name
-    existing_orthomosaic = existing_project / 'odm_orthophoto' / 'odm_orthophoto.tif'
-    rgb_project = output_path / (project_name + '_rgb')
-
-    if existing_project.exists() and not existing_orthomosaic.is_file():
-        raise FileExistsError('Existing project has no completed orthomosaic; refusing to overwrite it.')
-    if rgb_project.exists():
-        raise FileExistsError('RGB project folder already exists; refusing to overwrite it.')
-    if existing_orthomosaic.is_file():
-        print(f'Resuming existing project; multispectral orthomosaic found: {existing_orthomosaic}', flush=True)
+    if (output_path / project_name).exists() or (output_path / (project_name + '_rgb')).exists():
+        raise FileExistsError('Project already exists in the output folder. Choose another name.')
 
     # The existing RGB workflow looks for *_D.JPG in the SAME folder.
     rgb_images = sorted(p for p in image_path.iterdir()
