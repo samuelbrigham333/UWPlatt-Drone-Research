@@ -137,6 +137,16 @@ export default function ODMProcessing({ settings, setSettings, job, setJob }: Pr
                             {['low', 'medium', 'high', 'ultra'].map(v => <option key={v} value={v}>{v}</option>)}
                         </select>
                     </label>
+                    <label>Orthophoto detail
+                        <select value={settings.odm.orthophotoResolutionMode} onChange={e => updateODM({ orthophotoResolutionMode: e.target.value as AppSettings['odm']['orthophotoResolutionMode'] })}>
+                            <option value="best-gsd">Best available (respect estimated GSD)</option>
+                            <option value="manual">Manual target resolution</option>
+                        </select>
+                    </label>
+                    {settings.odm.orthophotoResolutionMode === 'manual' && <label>Target resolution (cm/pixel)
+                        <input type="number" min={0.1} step={0.1} value={settings.odm.orthophotoResolution} onChange={e => updateODM({ orthophotoResolution: Number(e.target.value) })} />
+                    </label>}
+                    <p className="config-description">Best available requests 1 cm/pixel; ODM limits the output to its estimated ground sampling distance. If ODM cannot estimate GSD, it uses the 1 cm target.</p>
                     <label>Max concurrency
                         <input type="number" min={1} max={64} value={settings.docker.maxConcurrency} onChange={e => updateDocker({ maxConcurrency: Number(e.target.value) })} />
                     </label>

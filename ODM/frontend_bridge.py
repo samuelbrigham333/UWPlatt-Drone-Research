@@ -14,6 +14,9 @@ import sys
 import traceback
 from pathlib import Path
 
+from ODM.command_builder import BEST_GSD_ORTHOPHOTO_RESOLUTION
+
+
 # Parse user-selected paths here instead of depending on the CLI UI module.
 def parse_path(value):
     """Convert a native folder picker path or a quoted pasted path to Path."""
@@ -92,7 +95,18 @@ def parse_request(request):
     overlap = float(odm['splitOverlap'])
     if split <= 0 or overlap < 0:
         raise ValueError('Invalid split/overlap settings.')
-    
+    resolution_mode = odm.get('orthophotoResolutionMode', 'best-gsd')
+    if resolution_mode not in ('best-gsd', 'manual'):
+        raise ValueError('Invalid orthophoto resolution mode.')
+    resolution = (
+        BEST_GSD_ORTHOPHOTO_RESOLUTION
+        if resolution_mode == 'best-gsd'
+        else float(odm['orthophotoResolution'])
+    )
+    if resolution <= 0:
+        raise ValueError('Orthophoto resolution must be positive.')
+    # This first integration is ODM-only. Reject unsupported workflows
+    # explicitly instead of accidentally calling an interactive CLI prompt.
     if request.get('generateSuperpixels', False):
         raise ValueError('Superpixel generation is not connected on this page yet.')
 

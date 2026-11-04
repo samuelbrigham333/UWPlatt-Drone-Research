@@ -44,3 +44,22 @@ export async function startODM(jobId: string, request: ODMJobRequest): Promise<v
 export async function cancelODM(jobId: string): Promise<void> {
     return invoke('odm_cancel', { jobId });
 }
+export async function chooseTiffFile(title: string): Promise<string | null> {
+    if (!isTauri()) {
+        throw new Error('Native file selection requires the Tauri desktop app.');
+    }
+
+    const selection = await open({
+        directory: false,
+        multiple: false,
+        title,
+        filters: [
+            {
+                name: 'GeoTIFF',
+                extensions: ['tif', 'tiff']
+            }
+        ]
+    });
+
+    return typeof selection === 'string' ? selection : null;
+}

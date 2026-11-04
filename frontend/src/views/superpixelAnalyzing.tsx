@@ -1,3 +1,4 @@
+
 /**
  * Superpixel Training Workspace
  *
@@ -12,6 +13,7 @@
  */
 
 import { useMemo, useState, type ChangeEvent } from 'react';
+import { chooseTiffFile } from '../lib/odmBridge';
 import '../styling/superpixelAnalyzing.css';
 
 // ==========================================================
@@ -75,6 +77,13 @@ export default function SuperpixelAnalyzing() {
   const [error, setError] = useState('');
   const [onlyUnlabeled, setOnlyUnlabeled] = useState(false);
 
+  const [orthomosaicPaths, setOrthomosaicPaths] = useState({
+    multispectral: '',
+    rgb: ''
+});
+
+
+
   const samples = manifest?.samples ?? [];
   const activeSample = samples[index];
   const selectedClass = activeSample ? labels[activeSample.id] : undefined;
@@ -122,6 +131,33 @@ export default function SuperpixelAnalyzing() {
     }
   }
 
+  async function browseOrthomosaic(
+    field: 'multispectral' | 'rgb'
+) {
+    try {
+        const title = field === 'rgb'
+            ? 'Select RGB Orthomosaic'
+            : 'Select Multispectral Orthomosaic';
+
+        const path = await chooseTiffFile(title);
+
+        if (path) {
+            setOrthomosaicPaths(previous => ({
+                ...previous,
+                [field]: path
+            }));
+
+            setError('');
+        }
+    } catch (problem) {
+        setError(
+            problem instanceof Error
+                ? problem.message
+                : String(problem)
+        );
+    }
+}
+
   // ==========================================================
   // CLASSIFICATION AND NAVIGATION
   // ==========================================================
@@ -162,7 +198,7 @@ export default function SuperpixelAnalyzing() {
   }
 
   // ==========================================================
-  // RENDER
+  // RENDER JSX
   // ==========================================================
 
   return (
@@ -178,6 +214,63 @@ export default function SuperpixelAnalyzing() {
           <input type="file" accept=".json,application/json" onChange={loadManifest} />
         </label>
       </header>
+
+
+      <section className="training-file-section">
+    <h2>Orthomosaic Selection</h2>
+    <p>
+        Select the multispectral and RGB orthomosaics that will be
+        used for superpixel visualization and classification.
+    </p>
+
+    <div className="training-file-grid">
+        <label>
+            Multispectral Orthomosaic
+            <span className="training-path-row">
+                <input
+                    type="text"
+                    value={orthomosaicPaths.multispectral}
+                    onChange={e =>
+                        setOrthomosaicPaths(previous => ({
+                            ...previous,
+                            multispectral: e.target.value
+                        }))
+                    }
+                    placeholder="Path to multispectral .tif"
+                />
+                <button
+                    type="button"
+                    onClick={() => browseOrthomosaic('multispectral')}
+                >
+                    Browse
+                </button>
+            </span>
+        </label>
+
+        <label>
+            RGB Orthomosaic
+            <span className="training-path-row">
+                <input
+                    type="text"
+                    value={orthomosaicPaths.rgb}
+                    onChange={e =>
+                        setOrthomosaicPaths(previous => ({
+                            ...previous,
+                            rgb: e.target.value
+                        }))
+                    }
+                    placeholder="Path to RGB .tif"
+                />
+                <button
+                    type="button"
+                    onClick={() => browseOrthomosaic('rgb')}
+                >
+                    Browse
+                </button>
+            </span>
+        </label>
+    </div>
+</section>
 
       {error && <p role="alert" className="training-error">{error}</p>}
 
