@@ -9,6 +9,7 @@ export type PlatformPreference = 'auto' | 'windows' | 'macos';
 export type GpuMode = 'auto' | 'cpu' | 'nvidia';
 export type PointCloudQuality = 'lowest' | 'low' | 'medium' | 'high' | 'ultra';
 export type FeatureQuality = 'low' | 'medium' | 'high' | 'ultra';
+export type OrthophotoResolutionMode = 'best-gsd' | 'manual';
 export interface AppSettings {
     appearance: {
         theme: Theme;
@@ -24,6 +25,7 @@ export interface AppSettings {
         splitOverlap: number;
         pointCloudQuality: PointCloudQuality;
         featureQuality: FeatureQuality;
+        orthophotoResolutionMode: OrthophotoResolutionMode;
         orthophotoResolution: number;
         dsm: boolean;
         dtm: boolean;
@@ -54,6 +56,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
         splitOverlap: 150,
         pointCloudQuality: 'high',
         featureQuality: 'high',
+        orthophotoResolutionMode: 'best-gsd',
         orthophotoResolution: 5,
         dsm: false,
         dtm: false,
@@ -104,6 +107,8 @@ export function validateJob(job: ODMJobRequest): string | null {
         return 'Split overlap cannot be negative.';
     if (!Number.isFinite(o.orthophotoResolution) || o.orthophotoResolution <= 0)
         return 'Orthophoto resolution must be positive.';
+    if (o.orthophotoResolutionMode !== 'best-gsd' && o.orthophotoResolutionMode !== 'manual')
+        return 'Invalid orthophoto resolution mode.';
     if (job.generateSuperpixels && (!Number.isFinite(s.regionArea) || s.regionArea <= 0 || !Number.isFinite(s.compactness) || s.compactness <= 0 || !Number.isFinite(s.sigma) || s.sigma < 0 || !Number.isInteger(s.tileSize) || s.tileSize < 1))
         return 'Invalid superpixel settings.';
     return null;

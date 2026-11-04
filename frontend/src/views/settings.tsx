@@ -82,14 +82,19 @@ export default function Settings({ settings, setSettings }: Props) {
           </label>
           <label>Feature quality<select value={settings.odm.featureQuality} onChange={e => setSettings(s => ({ ...s, odm: { ...s.odm, featureQuality: e.target.value as AppSettings['odm']['featureQuality'] } }))}>{['low', 'medium', 'high', 'ultra'].map(q => <option key={q} value={q}>{q}</option>)}</select>
           </label>
-          <label>Orthophoto resolution (cm/pixel)<input type="number" min={0.1} step={0.1} value={settings.odm.orthophotoResolution} onChange={e => setSettings(s => ({ ...s, odm: { ...s.odm, orthophotoResolution: Number(e.target.value) } }))}/>
+          <label>Orthophoto detail<select value={settings.odm.orthophotoResolutionMode} onChange={e => setSettings(s => ({ ...s, odm: { ...s.odm, orthophotoResolutionMode: e.target.value as AppSettings['odm']['orthophotoResolutionMode'] } }))}>
+              <option value="best-gsd">Best available (respect estimated GSD)</option>
+              <option value="manual">Manual target resolution</option>
+            </select>
           </label>
+          {settings.odm.orthophotoResolutionMode === 'manual' && <label>Target resolution (cm/pixel)<input type="number" min={0.1} step={0.1} value={settings.odm.orthophotoResolution} onChange={e => setSettings(s => ({ ...s, odm: { ...s.odm, orthophotoResolution: Number(e.target.value) } }))}/>
+          </label>}
           <label className="config-checkbox">
             <input type="checkbox" checked={settings.odm.dsm} onChange={e => setSettings(s => ({ ...s, odm: { ...s.odm, dsm: e.target.checked } }))}/> Generate DSM</label>
           <label className="config-checkbox">
             <input type="checkbox" checked={settings.odm.dtm} onChange={e => setSettings(s => ({ ...s, odm: { ...s.odm, dtm: e.target.checked } }))}/> Generate DTM</label>
         </div>
-        <p className="config-description">Split 2 is the previous project setting, not OpenDroneMap's upstream default. Increase it for larger image sets after checking available memory.</p>
+        <p className="config-description">Best available requests a fine output target while ODM's estimated GSD safeguard prevents oversampling beyond its estimate. Manual mode lets you request a coarser output. Split 2 is the previous project setting, not OpenDroneMap's upstream default.</p>
       </section>
 
       <section className="config-card">

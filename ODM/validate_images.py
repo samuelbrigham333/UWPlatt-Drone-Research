@@ -14,13 +14,14 @@ import exifread
 def validate_images(folder):
 
     valid_ext = {".jpg", ".jpeg", ".tif", ".tiff"}
+    image_files = [
+        img for img in folder.iterdir() if img.suffix.lower() in valid_ext
+    ]
 
     bad_files = []
+    total = len(image_files)
 
-    for img in folder.iterdir():
-        if img.suffix.lower() not in valid_ext:
-            continue
-
+    for index, img in enumerate(image_files, start=1):
         try:
             with open(img, "rb") as f:
                 exifread.process_file(f, details=True, extract_thumbnail=False)
@@ -30,6 +31,18 @@ def validate_images(folder):
             print(e)
 
             bad_files.append(img.name)
+
+        width = 30
+        filled = width * index // total
+        bar = "#" * filled + "-" * (width - filled)
+        print(
+            f"\rLoading photos: [{bar}] {index}/{total}",
+            end="",
+            flush=True,
+        )
+
+    if total:
+        print()
 
     if bad_files:
         print("\nBad images found:")

@@ -88,6 +88,15 @@ ODM is currently configured around:
 
 opendronemap/odm:3.6.1
 
+Orthophoto output defaults to the best available detail mode: the pipeline requests
+1 cm/pixel and leaves ODM's GSD safeguard enabled. ODM caps the output resolution
+using its reconstruction-based GSD estimate, avoiding the previous 5 cm/pixel
+target when the imagery supports finer output without disabling the safeguard. If
+ODM cannot estimate GSD, it uses the 1 cm target, which can increase output size
+without adding source detail. Manual mode is available in the frontend for
+intentionally coarser orthophotos; finer raster pixels do not create detail absent
+from the source imagery.
+
 The project uses ODM's split processing to help manage large drone datasets.
 
 2. Multispectral Orthomosaic

@@ -9,6 +9,8 @@ import platform
 import re
 from pathlib import Path
 
+BEST_GSD_ORTHOPHOTO_RESOLUTION = 1.0
+
 
 class ODMCommandBuilder:
     def __init__(self, image_path, output_path, project_name, options, image_directory=None):
@@ -39,10 +41,30 @@ class ODMCommandBuilder:
         overlap = float(options['split_overlap'])
         quality = options.get('pc_quality', 'medium')
         feature_quality = options.get('feature_quality', 'high')
-        resolution = float(options.get('orthophoto_resolution', 5))
+
+        raw_resolution = options.get(
+            'orthophoto_resolution', BEST_GSD_ORTHOPHOTO_RESOLUTION
+        )
+
+        if raw_resolution is None or str(raw_resolution).strip() == '':
+            resolution = BEST_GSD_ORTHOPHOTO_RESOLUTION
+        else:
+            try:
+                resolution = float(raw_resolution)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "Orthophoto resolution must be a positive number greater than zero or blank."
+                )
+
+        
         concurrency = int(options.get('max_concurrency', 1))
 
-        if split < 1 or overlap < 0 or resolution <= 0 or not 1 <= concurrency <= 64:
+        if (
+            split < 1
+            or overlap < 0
+            or (resolution is not None and resolution <= 0 )
+            or not 1 <= concurrency <= 64
+        ):
             raise ValueError('Invalid ODM numeric settings.')
         if quality not in ('lowest', 'low', 'medium', 'high', 'ultra'):
             raise ValueError('Invalid point cloud quality.')
@@ -75,9 +97,12 @@ class ODMCommandBuilder:
             '--split-overlap', str(overlap),
             '--pc-quality', quality,
             '--feature-quality', feature_quality,
-            '--orthophoto-resolution', str(resolution),
+            '--orthophoto-compression', 'DEFLATE',
             '--max-concurrency', str(concurrency),
         ])
+
+        if resolution is not None:
+            command.extend(['--orthophoto-resolution', str(resolution)])
 
         if gpu == 'nvidia':
             command.extend(['--feature-type', 'sift'])
