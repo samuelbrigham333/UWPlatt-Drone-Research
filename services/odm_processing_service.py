@@ -12,6 +12,7 @@ Responsibilities:
 
 from pathlib import Path
 import shutil
+import os
 
 from ODM.command_builder import ODMCommandBuilder
 from ODM.docker_manager import DockerManager
@@ -201,7 +202,7 @@ class ODMProcessingService:
             if target.exists():
                 target.unlink()
             try:
-                target.hardlink_to(image)
+                os.link(image, target)
             except OSError:
                 # Cross-volume or cloud filesystem: copy to temp, then publish.
                 temporary = target.with_name(target.name + ".part")
