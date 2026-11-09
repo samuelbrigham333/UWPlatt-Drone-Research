@@ -79,7 +79,8 @@ export default function SuperpixelAnalyzing() {
 
   const [orthomosaicPaths, setOrthomosaicPaths] = useState({
     multispectral: '',
-    rgb: ''
+    rgb: '',
+    labels: ''
 });
 
 
@@ -132,12 +133,14 @@ export default function SuperpixelAnalyzing() {
   }
 
   async function browseOrthomosaic(
-    field: 'multispectral' | 'rgb'
-) {
+    field: 'multispectral' | 'rgb' | 'labels'
+  ) {
     try {
         const title = field === 'rgb'
             ? 'Select RGB Orthomosaic'
-            : 'Select Multispectral Orthomosaic';
+            : field === 'labels'
+                ? 'Select Labels Orthomosaic'
+                : 'Select Multispectral Orthomosaic';
 
         const path = await chooseTiffFile(title);
 
@@ -365,3 +368,7 @@ export default function SuperpixelAnalyzing() {
     </div>
   );
 }
+
+
+
+
