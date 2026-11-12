@@ -15,6 +15,8 @@ import traceback
 from pathlib import Path
 
 from ODM.command_builder import BEST_GSD_ORTHOPHOTO_RESOLUTION
+from ODM.orthomosaic_preview import OrthomosaicPreviewService
+
 
 
 # Parse user-selected paths here instead of depending on the CLI UI module.
@@ -162,3 +164,23 @@ if __name__ == '__main__':
         traceback.print_exc()
         emit('Failed', f'ERROR: {error}')
         sys.exit(1)
+
+def generate_preview(
+        raster_path,
+        output_path,
+):
+    """Generates an orthomosaic preview for the frontend."""
+
+    raster_path = Path(raster_path)
+
+    if not raster_path.is_file():
+        raise FileNotFoundError(f'Orthomosaic not found: {raster_path}')
+
+    preview_path = OrthomosaicPreviewService.generate_preview(
+        raster_path=raster_path,
+        output_path=output_path,
+    )
+
+    return {
+        'preview_path': str(preview_path)
+    }
