@@ -5,6 +5,9 @@ Run from repository root:
 
 A GUI request replaces UserInterface.get_odm_configuration() only for this run.
 The terminal/CLI still calls the same service without a config and keeps its prompts.
+
+frontend_bridge.py works as a link or "bridge" between the React frontend and the existing ODM service that lives in the backend.
+Works by parsing the JSON request from the frontend, validating it, and calling the existing ODMProcessingService with the parsed config.
 """
 import json
 import os
@@ -18,6 +21,10 @@ from ODM.command_builder import BEST_GSD_ORTHOPHOTO_RESOLUTION
 from ODM.orthomosaic_preview import OrthomosaicPreviewService
 
 
+import inspect
+
+print("preview service imported from:", inspect.getfile(OrthomosaicPreviewService), flush=True)
+print("available methods:", dir(OrthomosaicPreviewService), flush=True)
 
 # Parse user-selected paths here instead of depending on the CLI UI module.
 def parse_path(value):
@@ -30,6 +37,7 @@ def parse_path(value):
     return Path(raw).expanduser().resolve()
 
 
+#sends updates from backend to frontend while ODM is running processing
 def emit(stage, message=None):
     print('@@ODM_EVENT@@' + json.dumps({
         'kind': 'stage', 'stage': stage, 'message': message or stage
@@ -42,6 +50,7 @@ def nvidia_available_on_host():
     return DockerManager().nvidia_gpu_available()
 
 
+#written by Jason R Lee, used to check for gpu availability and return the correct engine to use for processing
 def resolve_gpu_mode(preference):
     """Auto chooses a candidate engine; Docker access must still be checked at run time."""
     if preference not in ('auto', 'cpu', 'nvidia'):
@@ -128,7 +137,7 @@ def parse_request(request):
         }
     }
 
-
+#Runs the actual ODM processing needs to call docker to do this
 def run_request(request, job_id='job-cli-test'):
     """Run the real service. Kept separate for easy unit testing."""
     if not re.fullmatch(r'job-[a-zA-Z0-9-]{1,64}', job_id):
@@ -151,6 +160,35 @@ def run_request(request, job_id='job-cli-test'):
         os.environ.pop('ODM_UI_CONTAINER_NAME', None)
 
 
+def generate_preview(
+        raster_path,
+        output_path,
+):
+    """Generates an orthomosaic preview for the frontend."""
+
+    raster_path = Path(raster_path)
+
+    if not raster_path.is_file():
+        raise FileNotFoundError(f'Orthomosaic not found: {raster_path}')
+
+    raster_data = OrthomosaicPreviewService.read_rgb(
+        raster_path = raster_path
+    )
+
+    preview = OrthomosaicPreviewService.create_preview(
+        raster_data=raster_data,
+    )
+
+    preview_path = OrthomosaicPreviewService.save_preview(
+        preview=preview,
+        output_path=Path(output_path),
+    )
+
+    return {
+        'preview_path': str(preview_path)
+    }
+
+
 def main():
     request = json.loads(sys.argv[1])
     job_id = sys.argv[2] if len(sys.argv) > 2 else 'job-legacy'
@@ -164,23 +202,3 @@ if __name__ == '__main__':
         traceback.print_exc()
         emit('Failed', f'ERROR: {error}')
         sys.exit(1)
-
-def generate_preview(
-        raster_path,
-        output_path,
-):
-    """Generates an orthomosaic preview for the frontend."""
-
-    raster_path = Path(raster_path)
-
-    if not raster_path.is_file():
-        raise FileNotFoundError(f'Orthomosaic not found: {raster_path}')
-
-    preview_path = OrthomosaicPreviewService.generate_preview(
-        raster_path=raster_path,
-        output_path=output_path,
-    )
-
-    return {
-        'preview_path': str(preview_path)
-    }

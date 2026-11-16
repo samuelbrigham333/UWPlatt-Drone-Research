@@ -272,6 +272,28 @@ export default function SuperpixelAnalyzing() {
                 </button>
             </span>
         </label>
+<label>
+    Superpixel Labels
+    <span className="training-path-row">
+        <input
+            type="text"
+            value={orthomosaicPaths.labels}
+            onChange={e =>
+                setOrthomosaicPaths(previous => ({
+                    ...previous,
+                    labels: e.target.value
+                }))
+            }
+            placeholder="Path to superpixel_labels.tif"
+        />
+        <button
+            type="button"
+            onClick={() => browseOrthomosaic('labels')}
+        >
+            Browse
+        </button>
+    </span>
+</label>
     </div>
 </section>
 

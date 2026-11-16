@@ -437,6 +437,8 @@ class OrthomosaicPreviewService:
 
         return Image.fromarray(image_array, mode="RGBA")
 
+
+#saved as a png as a lightweight display for the frontend ( not intended to replace the high quality .tif file)
     @staticmethod
     def save_preview(
         preview: Image.Image,
@@ -456,33 +458,3 @@ class OrthomosaicPreviewService:
             format="PNG",
         )
 
-        print(f"\nPreview saved: {output_path}")
-        print(f"Preview dimensions: {preview.size}")
-
-        return output_path
-
-    @staticmethod
-    def generate_preview(
-        raster_path: str | Path,
-        output_path: str | Path,
-        rgb_bands: tuple[int, int, int] = (1, 2, 3),
-        max_dimension: int = DEFAULT_MAX_DIMENSION,
-        resampling: Resampling = DEFAULT_RESAMPLING,
-    ) -> Path:
-        """Run the complete preview workflow."""
-
-        raster_data = OrthomosaicPreviewService.read_rgb(
-            raster_path=raster_path,
-            rgb_bands=rgb_bands,
-            max_dimension=max_dimension,
-            resampling=resampling,
-        )
-
-        preview = OrthomosaicPreviewService.create_preview(
-            raster_data
-        )
-
-        return OrthomosaicPreviewService.save_preview(
-            preview,
-            output_path,
-        )
