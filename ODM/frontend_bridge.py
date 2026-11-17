@@ -214,11 +214,34 @@ def generate_preview(
 
 
 def main():
-    
-    request = json.loads(sys.argv[1])
-    job_id = sys.argv[2] if len(sys.argv) > 2 else 'job-legacy'
-    return run_request(request, job_id)
 
+    if len(sys.argv) < 2:
+        raise ValueError("An operation or ODM request is required.")
+    operation = sys.argv[1]
+
+    if operation == 'preview':
+
+        if len(sys.argv) < 4:
+            raise ValueError('Preview operation requires raster path and output path.')
+
+        raster_path = sys.argv[2]
+        output_path = sys.argv[3]
+
+        result = generate_preview(
+            raster_path = raster_path,
+            output_path = output_path
+        )
+
+    else:
+        request = json.loads(sys.argv[1])
+
+        job_id = (
+            sys.argv[2]
+            if len(sys.argv) > 2
+            else 'job-legacy'
+        )
+
+        return run_request(request, job_id)
 
 if __name__ == '__main__':
     try:
