@@ -159,6 +159,30 @@ def run_request(request, job_id='job-cli-test'):
     finally:
         os.environ.pop('ODM_UI_CONTAINER_NAME', None)
 
+def generate_preview(raster_path, output_path):
+    raster_path = Path(raster_path)
+
+    if not raster_path.is_file():
+        raise FileNotFoundError(f"Orthomosaic file not found: {raster_path}")
+
+    raster_data = OrthomosaicPreviewService.read_rgb(
+        raster_path = raster_path
+    )
+
+    preview_path = OrthomosaicPreviewService.generate_preview(
+        raster_data = raster_data
+    )
+
+    preview_path = OrthomosaicPreviewService.save_preview(
+        preview_data = preview_path,
+        output_path = Path(output_path)
+    )
+
+    return{
+        'preview_path': str(preview_path)
+    }
+
+
 
 def generate_preview(
         raster_path,
@@ -190,6 +214,7 @@ def generate_preview(
 
 
 def main():
+    
     request = json.loads(sys.argv[1])
     job_id = sys.argv[2] if len(sys.argv) > 2 else 'job-legacy'
     return run_request(request, job_id)
