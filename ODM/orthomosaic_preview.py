@@ -457,4 +457,5 @@ class OrthomosaicPreviewService:
             output_path,
             format="PNG",
         )
-
+        
+        return output_path

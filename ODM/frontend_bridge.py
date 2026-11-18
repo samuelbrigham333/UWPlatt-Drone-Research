@@ -23,6 +23,7 @@ from ODM.orthomosaic_preview import OrthomosaicPreviewService
 
 import inspect
 
+
 print("preview service imported from:", inspect.getfile(OrthomosaicPreviewService), flush=True)
 print("available methods:", dir(OrthomosaicPreviewService), flush=True)
 
@@ -170,7 +171,7 @@ def generate_preview(raster_path, output_path):
     )
 
     preview_path = OrthomosaicPreviewService.generate_preview(
-        raster_data = raster_data
+        rgba     = raster_data
     )
 
     preview_path = OrthomosaicPreviewService.save_preview(
@@ -200,7 +201,7 @@ def generate_preview(
     )
 
     preview = OrthomosaicPreviewService.create_preview(
-        raster_data=raster_data,
+        rgba =raster_data,
     )
 
     preview_path = OrthomosaicPreviewService.save_preview(
@@ -212,6 +213,7 @@ def generate_preview(
         'preview_path': str(preview_path)
     }
 
+    
 
 def main():
 
@@ -232,6 +234,10 @@ def main():
             output_path = output_path
         )
 
+        print("DEBUG result: ", result, flush=True)
+
+        print(json.dumps(result), flush=True)
+
     else:
         request = json.loads(sys.argv[1])
 
@@ -240,6 +246,7 @@ def main():
             if len(sys.argv) > 2
             else 'job-legacy'
         )
+        #"C:\Users\ambri\OneDrive - University of Wisconsin - Platteville\Desktop\Drone Stuff\SplitTestOutput\SplitTest027\odm_orthophoto\odm_orthophoto.original.tif"
 
         return run_request(request, job_id)
 
